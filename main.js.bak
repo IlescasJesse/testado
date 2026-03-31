@@ -1,0 +1,183 @@
+const {
+  app,
+  BrowserWindow,
+  Menu,
+  ipcMain,
+  dialog,
+  shell,
+} = require("electron");
+const path = require("path");
+const fs = require("fs");
+
+let mainWindow;
+let settingsWindow;
+
+const createWindow = () => {
+  mainWindow = new BrowserWindow({
+    width: 1200,
+    height: 800,
+    webPreferences: {
+      preload: path.join(__dirname, "preload.js"),
+      contextIsolation: true,
+      enableRemoteModule: false,
+      nodeIntegration: false,
+    },
+  });
+
+  mainWindow.loadFile("index.html");
+  mainWindow.webContents.openDevTools();
+};
+
+const createSettingsWindow = () => {
+  if (settingsWindow) return;
+
+  settingsWindow = new BrowserWindow({
+    width: 1400,
+    height: 900,
+    parent: mainWindow,
+    modal: true,
+    webPreferences: {
+      preload: path.join(__dirname, "preload.js"),
+      contextIsolation: true,
+      enableRemoteModule: false,
+      nodeIntegration: false,
+    },
+  });
+
+  settingsWindow.loadFile("settings.html");
+
+  settingsWindow.on("closed", () => {
+    settingsWindow = null;
+  });
+};
+
+app.on("ready", createWindow);
+
+app.on("window-all-closed", () => {
+  if (process.platform !== "darwin") {
+    app.quit();
+  }
+});
+
+app.on("activate", () => {
+  if (mainWindow === null) {
+    createWindow();
+  }
+});
+
+// IPC Handlers
+ipcMain.handle("get-pdf-list", async () => {
+  const contractsDir = path.join(__dirname, "contratos");
+  try {
+    if (!fs.existsSync(contractsDir)) {
+      fs.mkdirSync(contractsDir, { recursive: true });
+    }
+    const files = fs
+      .readdirSync(contractsDir)
+      .filter((file) => file.toLowerCase().endsWith(".pdf"));
+    return files;
+  } catch (error) {
+    console.error("Error reading PDF list:", error);
+    return [];
+  }
+});
+
+ipcMain.handle("get-pdf-path", (event, filename) => {
+  return path.join(__dirname, "contratos", filename);
+});
+
+ipcMain.handle("open-settings", () => {
+  createSettingsWindow();
+});
+
+ipcMain.handle("open-tested-folder", async () => {
+  const testedDir = path.join(__dirname, "tested_Censurado");
+  if (fs.existsSync(testedDir)) {
+    shell.openPath(testedDir);
+  } else {
+    fs.mkdirSync(testedDir, { recursive: true });
+    shell.openPath(testedDir);
+  }
+});
+
+ipcMain.handle("process-pdfs", async (event, fileList, censorRegions) => {
+  try {
+    const { censorPdf, processAllPdfs } = require("./index.js");
+    const contractsDir = path.join(__dirname, "contratos");
+    const outputDir = path.join(__dirname, "tested_Censurado");
+
+    if (!fs.existsSync(outputDir)) {
+      fs.mkdirSync(outputDir, { recursive: true });
+    }
+
+    // Procesar solo los PDFs seleccionados
+    for (const file of fileList) {
+      const inputPath = path.join(contractsDir, file);
+      const outputPath = path.join(outputDir, file);
+      await censorPdf(inputPath, outputPath, censorRegions);
+    }
+
+    return {
+      success: true,
+      message: `Se procesaron ${fileList.length} contratos`,
+    };
+  } catch (error) {
+    console.error("Error processing PDFs:", error);
+    return { success: false, message: error.message };
+  }
+});
+
+ipcMain.handle("save-config", async (event, contractName, config) => {
+  try {
+    const configDir = path.join(__dirname, "config");
+    if (!fs.existsSync(configDir)) {
+      fs.mkdirSync(configDir, { recursive: true });
+    }
+
+    const configFile = path.join(configDir, `${contractName}.json`);
+    fs.writeFileSync(configFile, JSON.stringify(config, null, 2));
+    return { success: true };
+  } catch (error) {
+    return { success: false, message: error.message };
+  }
+});
+
+ipcMain.handle("load-config", async (event, contractName) => {
+  try {
+    const configFile = path.join(__dirname, "config", `${contractName}.json`);
+    if (fs.existsSync(configFile)) {
+      const config = fs.readFileSync(configFile, "utf8");
+      return JSON.parse(config);
+    }
+    return null;
+  } catch (error) {
+    return null;
+  }
+});
+
+// Menu
+const menu = Menu.buildFromTemplate([
+  {
+    label: "Archivo",
+    submenu: [
+      {
+        label: "Salir",
+        accelerator: "CmdOrCtrl+Q",
+        click: () => app.quit(),
+      },
+    ],
+  },
+  {
+    label: "Editar",
+    submenu: [
+      { label: "Deshacer", accelerator: "CmdOrCtrl+Z", role: "undo" },
+      { label: "Rehacer", accelerator: "CmdOrCtrl+Y", role: "redo" },
+      { type: "separator" },
+      { label: "Cortar", accelerator: "CmdOrCtrl+X", role: "cut" },
+      { label: "Copiar", accelerator: "CmdOrCtrl+C", role: "copy" },
+      { label: "Pegar", accelerator: "CmdOrCtrl+V", role: "paste" },
+    ],
+  },
+]);
+
+Menu.setApplicationMenu(menu);

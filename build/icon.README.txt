@@ -1,0 +1,3 @@
+Este archivo debe ser reemplazado con un ícono PNG de 256x256 o un archivo .ico para la aplicación.
+Puedes usar online-convert.com o crear uno en Photoshop/GIMP con las dimensiones correctas.
+El ícono debe estar en este archivo: build/icon.png

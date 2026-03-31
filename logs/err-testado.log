@@ -1,0 +1,739 @@
+2026-01-29 10:58:37 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 10:58:37 -06:00: Invalid object ref: 2 0 R
+2026-01-29 10:58:37 -06:00: ❌ JIMENEZ DOLORES MARCO ANTONIO.PDF: Input document to `PDFDocument.load` is encrypted. You can use `PDFDocument.load(..., { ignoreEncryption: true })` if you wish to load the document anyways.
+2026-01-29 10:59:01 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 10:59:01 -06:00: Invalid object ref: 2 0 R
+2026-01-29 10:59:01 -06:00: ❌ JIMENEZ DOLORES MARCO ANTONIO.PDF: Input document to `PDFDocument.load` is encrypted. You can use `PDFDocument.load(..., { ignoreEncryption: true })` if you wish to load the document anyways.
+2026-01-29 10:59:17 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 10:59:17 -06:00: Invalid object ref: 2 0 R
+2026-01-29 10:59:17 -06:00: ❌ JIMENEZ DOLORES MARCO ANTONIO.PDF: Input document to `PDFDocument.load` is encrypted. You can use `PDFDocument.load(..., { ignoreEncryption: true })` if you wish to load the document anyways.
+2026-01-29 11:23:43 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-01-29 11:23:43 -06:00: Error in pixScanForForeground: invalid box
+2026-01-29 11:23:43 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-01-29 11:23:43 -06:00: Error in pixScanForForeground: invalid box
+2026-01-29 11:24:15 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-01-29 11:24:15 -06:00: Error in pixScanForForeground: invalid box
+2026-01-29 11:24:48 -06:00: Trying to parse invalid object: {"line":9379,"column":2493,"offset":242})
+2026-01-29 11:24:48 -06:00: Invalid object ref: 9 0 R
+2026-01-29 11:24:48 -06:00: ❌ RODRIGUEZ MARTINEZ JOSEFINA.pdf: Failed to parse PDF document (line:9379 col:2493 offset=242): Failed to parse invalid PDF object
+2026-01-29 11:25:10 -06:00: Detected 9 diacritics
+2026-01-29 11:25:44 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-01-29 11:25:44 -06:00: Error in pixScanForForeground: invalid box
+2026-01-29 11:25:44 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-01-29 11:25:44 -06:00: Error in pixScanForForeground: invalid box
+2026-01-29 11:26:14 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-01-29 11:26:14 -06:00: Error in pixScanForForeground: invalid box
+2026-01-29 11:26:41 -06:00: ❌ RAMIREZ VELASQUEZ BLANCA ESTELA.pdf: ENOENT: no such file or directory, open 'C:\Users\ilesm\Desktop\testado\temp_uploads\RAMIREZ VELASQUEZ BLANCA ESTELA.pdf'
+2026-01-29 11:26:46 -06:00: ❌ RODRIGUEZ RIVERA LUCERO.pdf: ENOENT: no such file or directory, open 'C:\Users\ilesm\Desktop\testado\temp_uploads\RODRIGUEZ RIVERA LUCERO.pdf'
+2026-01-29 11:26:46 -06:00: ❌ RUIZ MIJANGOS MARIANA.pdf: ENOENT: no such file or directory, open 'C:\Users\ilesm\Desktop\testado\temp_uploads\RUIZ MIJANGOS MARIANA.pdf'
+2026-01-29 11:26:46 -06:00: ❌ SALAZAR AVILA CRISTAL.pdf: ENOENT: no such file or directory, open 'C:\Users\ilesm\Desktop\testado\temp_uploads\SALAZAR AVILA CRISTAL.pdf'
+2026-01-29 11:26:46 -06:00: ❌ SANTIAGO DE LOS ANGELES ISRAEL.pdf: ENOENT: no such file or directory, open 'C:\Users\ilesm\Desktop\testado\temp_uploads\SANTIAGO DE LOS ANGELES ISRAEL.pdf'
+2026-01-29 11:26:46 -06:00: ❌ SIBAJA ORTIZ SELENNE DEL CARMEN.pdf: ENOENT: no such file or directory, open 'C:\Users\ilesm\Desktop\testado\temp_uploads\SIBAJA ORTIZ SELENNE DEL CARMEN.pdf'
+2026-01-29 11:26:46 -06:00: ❌ VARGAS CRUZ MARITZA IVETT.pdf: ENOENT: no such file or directory, open 'C:\Users\ilesm\Desktop\testado\temp_uploads\VARGAS CRUZ MARITZA IVETT.pdf'
+2026-01-29 11:26:46 -06:00: ❌ VASQUEZ MARTINEZ AURORA.pdf: ENOENT: no such file or directory, open 'C:\Users\ilesm\Desktop\testado\temp_uploads\VASQUEZ MARTINEZ AURORA.pdf'
+2026-01-29 11:27:44 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-01-29 11:27:44 -06:00: Error in pixScanForForeground: invalid box
+2026-01-29 11:27:44 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-01-29 11:27:44 -06:00: Error in pixScanForForeground: invalid box
+2026-01-29 11:28:20 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-01-29 11:28:20 -06:00: Error in pixScanForForeground: invalid box
+2026-01-29 11:29:22 -06:00: ObjectCache(00007ffc91434560)::~ObjectCache(): WARNING! LEAK! object 000001fe65efb130 still has count 1 (id C:\Program Files\Tesseract-OCR\tessdata\spa.traineddatalstm-punc-dawg)
+2026-01-29 11:29:22 -06:00: ObjectCache(00007ffc91434560)::~ObjectCache(): WARNING! LEAK! object 000001fe65eb9100 still has count 1 (id C:\Program Files\Tesseract-OCR\tessdata\spa.traineddatalstm-word-dawg)
+2026-01-29 11:29:22 -06:00: ObjectCache(00007ffc91434560)::~ObjectCache(): WARNING! LEAK! object 000001fe65f0da60 still has count 1 (id C:\Program Files\Tesseract-OCR\tessdata\spa.traineddatalstm-number-dawg)
+2026-01-29 12:01:05 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 12:01:05 -06:00: Invalid object ref: 2 0 R
+2026-01-29 12:03:25 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 12:03:25 -06:00: Invalid object ref: 2 0 R
+2026-01-29 12:53:15 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 12:53:15 -06:00: Invalid object ref: 2 0 R
+2026-01-29 12:53:15 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 12:53:15 -06:00: Invalid object ref: 2 0 R
+2026-01-29 12:53:20 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-01-29 12:53:20 -06:00: Error in pixScanForForeground: invalid box
+2026-01-29 12:53:24 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-01-29 12:53:24 -06:00: Error in pixScanForForeground: invalid box
+2026-01-29 12:53:24 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-01-29 12:53:24 -06:00: Error in pixScanForForeground: invalid box
+2026-01-29 12:53:26 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 12:53:26 -06:00: Invalid object ref: 2 0 R
+2026-01-29 12:53:30 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 12:53:30 -06:00: Invalid object ref: 2 0 R
+2026-01-29 12:53:30 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 12:53:30 -06:00: Invalid object ref: 2 0 R
+2026-01-29 12:53:30 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 12:53:30 -06:00: Invalid object ref: 2 0 R
+2026-01-29 12:53:30 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 12:53:30 -06:00: Invalid object ref: 2 0 R
+2026-01-29 12:53:36 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 12:53:36 -06:00: Invalid object ref: 2 0 R
+2026-01-29 12:53:36 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 12:53:36 -06:00: Invalid object ref: 2 0 R
+2026-01-29 12:53:36 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 12:53:36 -06:00: Invalid object ref: 2 0 R
+2026-01-29 12:53:36 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 12:53:36 -06:00: Invalid object ref: 2 0 R
+2026-01-29 12:53:40 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-01-29 12:53:40 -06:00: Error in pixScanForForeground: invalid box
+2026-01-29 12:53:41 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 12:53:41 -06:00: Invalid object ref: 2 0 R
+2026-01-29 12:53:41 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 12:53:41 -06:00: Invalid object ref: 2 0 R
+2026-01-29 12:53:41 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 12:53:41 -06:00: Invalid object ref: 2 0 R
+2026-01-29 12:53:45 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-01-29 12:53:45 -06:00: Error in pixScanForForeground: invalid box
+2026-01-29 12:53:45 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-01-29 12:53:45 -06:00: Error in pixScanForForeground: invalid box
+2026-01-29 12:53:45 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-01-29 12:53:45 -06:00: Error in pixScanForForeground: invalid box
+2026-01-29 12:53:45 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-01-29 12:53:45 -06:00: Error in pixScanForForeground: invalid box
+2026-01-29 12:53:47 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 12:53:47 -06:00: Invalid object ref: 2 0 R
+2026-01-29 12:53:53 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 12:53:53 -06:00: Invalid object ref: 2 0 R
+2026-01-29 12:53:58 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 12:53:58 -06:00: Invalid object ref: 2 0 R
+2026-01-29 12:54:04 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 12:54:04 -06:00: Invalid object ref: 2 0 R
+2026-01-29 12:54:08 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-01-29 12:54:08 -06:00: Error in pixScanForForeground: invalid box
+2026-01-29 12:54:08 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-01-29 12:54:08 -06:00: Error in pixScanForForeground: invalid box
+2026-01-29 12:54:10 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 12:54:10 -06:00: Invalid object ref: 2 0 R
+2026-01-29 12:54:20 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 12:54:20 -06:00: Invalid object ref: 2 0 R
+2026-01-29 12:54:26 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 12:54:26 -06:00: Invalid object ref: 2 0 R
+2026-01-29 12:54:26 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 12:54:26 -06:00: Invalid object ref: 2 0 R
+2026-01-29 12:54:42 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 12:54:42 -06:00: Invalid object ref: 2 0 R
+2026-01-29 12:54:54 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 12:54:54 -06:00: Invalid object ref: 2 0 R
+2026-01-29 12:54:54 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 12:54:54 -06:00: Invalid object ref: 2 0 R
+2026-01-29 12:54:58 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-01-29 12:54:58 -06:00: Error in pixScanForForeground: invalid box
+2026-01-29 12:55:00 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 12:55:00 -06:00: Invalid object ref: 2 0 R
+2026-01-29 12:55:14 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 12:55:14 -06:00: Invalid object ref: 2 0 R
+2026-01-29 12:55:19 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 12:55:19 -06:00: Invalid object ref: 2 0 R
+2026-01-29 12:55:19 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 12:55:19 -06:00: Invalid object ref: 2 0 R
+2026-01-29 12:55:19 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 12:55:19 -06:00: Invalid object ref: 2 0 R
+2026-01-29 12:55:19 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 12:55:19 -06:00: Invalid object ref: 2 0 R
+2026-01-29 12:55:23 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-01-29 12:55:23 -06:00: Error in pixScanForForeground: invalid box
+2026-01-29 12:55:30 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 12:55:30 -06:00: Invalid object ref: 2 0 R
+2026-01-29 12:55:30 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 12:55:30 -06:00: Invalid object ref: 2 0 R
+2026-01-29 12:55:30 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 12:55:30 -06:00: Invalid object ref: 2 0 R
+2026-01-29 12:55:30 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 12:55:30 -06:00: Invalid object ref: 2 0 R
+2026-01-29 12:55:36 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 12:55:36 -06:00: Invalid object ref: 2 0 R
+2026-01-29 12:55:41 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 12:55:41 -06:00: Invalid object ref: 2 0 R
+2026-01-29 12:55:41 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 12:55:41 -06:00: Invalid object ref: 2 0 R
+2026-01-29 12:55:41 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 12:55:41 -06:00: Invalid object ref: 2 0 R
+2026-01-29 12:55:58 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 12:55:58 -06:00: Invalid object ref: 2 0 R
+2026-01-29 12:56:10 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 12:56:10 -06:00: Invalid object ref: 2 0 R
+2026-01-29 12:56:14 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-01-29 12:56:14 -06:00: Error in pixScanForForeground: invalid box
+2026-01-29 12:56:15 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 12:56:15 -06:00: Invalid object ref: 2 0 R
+2026-01-29 12:56:32 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 12:56:32 -06:00: Invalid object ref: 2 0 R
+2026-01-29 12:56:32 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 12:56:32 -06:00: Invalid object ref: 2 0 R
+2026-01-29 12:56:32 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 12:56:32 -06:00: Invalid object ref: 2 0 R
+2026-01-29 12:56:32 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 12:56:32 -06:00: Invalid object ref: 2 0 R
+2026-01-29 12:56:32 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 12:56:32 -06:00: Invalid object ref: 2 0 R
+2026-01-29 12:56:48 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-01-29 12:56:48 -06:00: Error in pixScanForForeground: invalid box
+2026-01-29 12:56:49 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 12:56:49 -06:00: Invalid object ref: 2 0 R
+2026-01-29 12:57:16 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 12:57:16 -06:00: Invalid object ref: 2 0 R
+2026-01-29 12:57:16 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 12:57:16 -06:00: Invalid object ref: 2 0 R
+2026-01-29 12:57:22 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 12:57:22 -06:00: Invalid object ref: 2 0 R
+2026-01-29 12:57:22 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 12:57:22 -06:00: Invalid object ref: 2 0 R
+2026-01-29 12:57:22 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 12:57:22 -06:00: Invalid object ref: 2 0 R
+2026-01-29 12:57:22 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 12:57:22 -06:00: Invalid object ref: 2 0 R
+2026-01-29 12:57:22 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 12:57:22 -06:00: Invalid object ref: 2 0 R
+2026-01-29 12:57:22 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 12:57:22 -06:00: Invalid object ref: 2 0 R
+2026-01-29 12:57:26 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-01-29 12:57:26 -06:00: Error in pixScanForForeground: invalid box
+2026-01-29 12:57:27 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 12:57:27 -06:00: Invalid object ref: 2 0 R
+2026-01-29 12:57:49 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 12:57:49 -06:00: Invalid object ref: 2 0 R
+2026-01-29 12:57:49 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 12:57:49 -06:00: Invalid object ref: 2 0 R
+2026-01-29 12:57:54 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 12:57:54 -06:00: Invalid object ref: 2 0 R
+2026-01-29 12:57:54 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 12:57:54 -06:00: Invalid object ref: 2 0 R
+2026-01-29 12:57:54 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 12:57:54 -06:00: Invalid object ref: 2 0 R
+2026-01-29 12:58:07 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 12:58:07 -06:00: Invalid object ref: 2 0 R
+2026-01-29 12:58:07 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 12:58:07 -06:00: Invalid object ref: 2 0 R
+2026-01-29 12:58:16 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-01-29 12:58:16 -06:00: Error in pixScanForForeground: invalid box
+2026-01-29 12:58:18 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 12:58:18 -06:00: Invalid object ref: 2 0 R
+2026-01-29 12:58:18 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 12:58:18 -06:00: Invalid object ref: 2 0 R
+2026-01-29 12:58:35 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 12:58:35 -06:00: Invalid object ref: 2 0 R
+2026-01-29 12:58:35 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 12:58:35 -06:00: Invalid object ref: 2 0 R
+2026-01-29 12:58:41 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 12:58:41 -06:00: Invalid object ref: 2 0 R
+2026-01-29 12:59:09 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 12:59:09 -06:00: Invalid object ref: 2 0 R
+2026-01-29 12:59:09 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 12:59:09 -06:00: Invalid object ref: 2 0 R
+2026-01-29 12:59:20 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 12:59:20 -06:00: Invalid object ref: 2 0 R
+2026-01-29 12:59:20 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 12:59:20 -06:00: Invalid object ref: 2 0 R
+2026-01-29 12:59:20 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 12:59:20 -06:00: Invalid object ref: 2 0 R
+2026-01-29 12:59:24 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 12:59:24 -06:00: Invalid object ref: 2 0 R
+2026-01-29 12:59:24 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 12:59:24 -06:00: Invalid object ref: 2 0 R
+2026-01-29 12:59:24 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 12:59:24 -06:00: Invalid object ref: 2 0 R
+2026-01-29 12:59:24 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 12:59:24 -06:00: Invalid object ref: 2 0 R
+2026-01-29 12:59:24 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 12:59:24 -06:00: Invalid object ref: 2 0 R
+2026-01-29 12:59:24 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 12:59:24 -06:00: Invalid object ref: 2 0 R
+2026-01-29 12:59:36 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 12:59:36 -06:00: Invalid object ref: 2 0 R
+2026-01-29 12:59:42 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 12:59:42 -06:00: Invalid object ref: 2 0 R
+2026-01-29 12:59:58 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 12:59:58 -06:00: Invalid object ref: 2 0 R
+2026-01-29 12:59:58 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 12:59:58 -06:00: Invalid object ref: 2 0 R
+2026-01-29 13:00:19 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 13:00:19 -06:00: Invalid object ref: 2 0 R
+2026-01-29 13:00:34 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-01-29 13:00:34 -06:00: Error in pixScanForForeground: invalid box
+2026-01-29 13:00:35 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 13:00:35 -06:00: Invalid object ref: 2 0 R
+2026-01-29 13:00:39 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-01-29 13:00:39 -06:00: Error in pixScanForForeground: invalid box
+2026-01-29 13:00:47 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 13:00:47 -06:00: Invalid object ref: 2 0 R
+2026-01-29 13:01:09 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 13:01:09 -06:00: Invalid object ref: 2 0 R
+2026-01-29 13:01:09 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 13:01:09 -06:00: Invalid object ref: 2 0 R
+2026-01-29 13:01:09 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 13:01:09 -06:00: Invalid object ref: 2 0 R
+2026-01-29 13:01:09 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 13:01:09 -06:00: Invalid object ref: 2 0 R
+2026-01-29 13:01:14 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 13:01:14 -06:00: Invalid object ref: 2 0 R
+2026-01-29 13:01:20 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 13:01:20 -06:00: Invalid object ref: 2 0 R
+2026-01-29 13:01:20 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 13:01:20 -06:00: Invalid object ref: 2 0 R
+2026-01-29 13:02:09 -06:00: Detected 20 diacritics
+2026-01-29 13:02:16 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 13:02:16 -06:00: Invalid object ref: 2 0 R
+2026-01-29 13:02:26 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 13:02:26 -06:00: Invalid object ref: 2 0 R
+2026-01-29 13:02:26 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 13:02:26 -06:00: Invalid object ref: 2 0 R
+2026-01-29 13:02:31 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 13:02:31 -06:00: Invalid object ref: 2 0 R
+2026-01-29 13:02:31 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 13:02:31 -06:00: Invalid object ref: 2 0 R
+2026-01-29 13:17:32 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 13:17:32 -06:00: Invalid object ref: 2 0 R
+2026-01-29 13:17:32 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 13:17:32 -06:00: Invalid object ref: 2 0 R
+2026-01-29 13:17:36 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-01-29 13:17:36 -06:00: Error in pixScanForForeground: invalid box
+2026-01-29 13:17:40 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-01-29 13:17:40 -06:00: Error in pixScanForForeground: invalid box
+2026-01-29 13:17:40 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-01-29 13:17:40 -06:00: Error in pixScanForForeground: invalid box
+2026-01-29 13:17:41 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 13:17:41 -06:00: Invalid object ref: 2 0 R
+2026-01-29 13:17:46 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 13:17:46 -06:00: Invalid object ref: 2 0 R
+2026-01-29 13:17:46 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 13:17:46 -06:00: Invalid object ref: 2 0 R
+2026-01-29 13:17:46 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 13:17:46 -06:00: Invalid object ref: 2 0 R
+2026-01-29 13:17:46 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 13:17:46 -06:00: Invalid object ref: 2 0 R
+2026-01-29 13:17:51 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 13:17:51 -06:00: Invalid object ref: 2 0 R
+2026-01-29 13:17:51 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 13:17:51 -06:00: Invalid object ref: 2 0 R
+2026-01-29 13:17:51 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 13:17:51 -06:00: Invalid object ref: 2 0 R
+2026-01-29 13:17:51 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 13:17:51 -06:00: Invalid object ref: 2 0 R
+2026-01-29 13:17:54 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-01-29 13:17:54 -06:00: Error in pixScanForForeground: invalid box
+2026-01-29 13:17:55 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 13:17:55 -06:00: Invalid object ref: 2 0 R
+2026-01-29 13:17:55 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 13:17:55 -06:00: Invalid object ref: 2 0 R
+2026-01-29 13:17:55 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 13:17:55 -06:00: Invalid object ref: 2 0 R
+2026-01-29 13:17:59 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-01-29 13:17:59 -06:00: Error in pixScanForForeground: invalid box
+2026-01-29 13:17:59 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-01-29 13:17:59 -06:00: Error in pixScanForForeground: invalid box
+2026-01-29 13:17:59 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-01-29 13:17:59 -06:00: Error in pixScanForForeground: invalid box
+2026-01-29 13:17:59 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-01-29 13:17:59 -06:00: Error in pixScanForForeground: invalid box
+2026-01-29 13:18:00 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 13:18:00 -06:00: Invalid object ref: 2 0 R
+2026-01-29 13:18:05 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 13:18:05 -06:00: Invalid object ref: 2 0 R
+2026-01-29 13:18:09 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 13:18:09 -06:00: Invalid object ref: 2 0 R
+2026-01-29 13:18:14 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 13:18:14 -06:00: Invalid object ref: 2 0 R
+2026-01-29 13:18:18 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-01-29 13:18:18 -06:00: Error in pixScanForForeground: invalid box
+2026-01-29 13:18:18 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-01-29 13:18:18 -06:00: Error in pixScanForForeground: invalid box
+2026-01-29 13:18:19 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 13:18:19 -06:00: Invalid object ref: 2 0 R
+2026-01-29 13:18:28 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 13:18:28 -06:00: Invalid object ref: 2 0 R
+2026-01-29 13:18:33 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 13:18:33 -06:00: Invalid object ref: 2 0 R
+2026-01-29 13:18:33 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 13:18:33 -06:00: Invalid object ref: 2 0 R
+2026-01-29 13:18:48 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 13:18:48 -06:00: Invalid object ref: 2 0 R
+2026-01-29 13:18:58 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 13:18:58 -06:00: Invalid object ref: 2 0 R
+2026-01-29 13:18:58 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 13:18:58 -06:00: Invalid object ref: 2 0 R
+2026-01-29 13:19:02 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-01-29 13:19:02 -06:00: Error in pixScanForForeground: invalid box
+2026-01-29 13:19:03 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 13:19:03 -06:00: Invalid object ref: 2 0 R
+2026-01-29 13:19:16 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 13:19:16 -06:00: Invalid object ref: 2 0 R
+2026-01-29 13:19:20 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 13:19:20 -06:00: Invalid object ref: 2 0 R
+2026-01-29 13:19:20 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 13:19:20 -06:00: Invalid object ref: 2 0 R
+2026-01-29 13:19:20 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 13:19:20 -06:00: Invalid object ref: 2 0 R
+2026-01-29 13:19:20 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 13:19:20 -06:00: Invalid object ref: 2 0 R
+2026-01-29 13:19:24 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-01-29 13:19:24 -06:00: Error in pixScanForForeground: invalid box
+2026-01-29 13:19:30 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 13:19:30 -06:00: Invalid object ref: 2 0 R
+2026-01-29 13:19:30 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 13:19:30 -06:00: Invalid object ref: 2 0 R
+2026-01-29 13:19:30 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 13:19:30 -06:00: Invalid object ref: 2 0 R
+2026-01-29 13:19:30 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 13:19:30 -06:00: Invalid object ref: 2 0 R
+2026-01-29 13:19:35 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 13:19:35 -06:00: Invalid object ref: 2 0 R
+2026-01-29 13:19:40 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 13:19:40 -06:00: Invalid object ref: 2 0 R
+2026-01-29 13:19:40 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 13:19:40 -06:00: Invalid object ref: 2 0 R
+2026-01-29 13:19:40 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 13:19:40 -06:00: Invalid object ref: 2 0 R
+2026-01-29 13:19:55 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 13:19:55 -06:00: Invalid object ref: 2 0 R
+2026-01-29 13:20:04 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 13:20:04 -06:00: Invalid object ref: 2 0 R
+2026-01-29 13:20:08 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-01-29 13:20:08 -06:00: Error in pixScanForForeground: invalid box
+2026-01-29 13:20:09 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 13:20:09 -06:00: Invalid object ref: 2 0 R
+2026-01-29 13:20:23 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 13:20:23 -06:00: Invalid object ref: 2 0 R
+2026-01-29 13:20:23 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 13:20:23 -06:00: Invalid object ref: 2 0 R
+2026-01-29 13:20:23 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 13:20:23 -06:00: Invalid object ref: 2 0 R
+2026-01-29 13:20:23 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 13:20:23 -06:00: Invalid object ref: 2 0 R
+2026-01-29 13:20:23 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 13:20:23 -06:00: Invalid object ref: 2 0 R
+2026-01-29 13:20:37 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-01-29 13:20:37 -06:00: Error in pixScanForForeground: invalid box
+2026-01-29 13:20:38 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 13:20:38 -06:00: Invalid object ref: 2 0 R
+2026-01-29 13:21:02 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 13:21:02 -06:00: Invalid object ref: 2 0 R
+2026-01-29 13:21:02 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 13:21:02 -06:00: Invalid object ref: 2 0 R
+2026-01-29 13:21:06 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 13:21:06 -06:00: Invalid object ref: 2 0 R
+2026-01-29 13:21:06 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 13:21:06 -06:00: Invalid object ref: 2 0 R
+2026-01-29 13:21:06 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 13:21:06 -06:00: Invalid object ref: 2 0 R
+2026-01-29 13:21:06 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 13:21:06 -06:00: Invalid object ref: 2 0 R
+2026-01-29 13:21:06 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 13:21:06 -06:00: Invalid object ref: 2 0 R
+2026-01-29 13:21:06 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 13:21:06 -06:00: Invalid object ref: 2 0 R
+2026-01-29 13:21:10 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-01-29 13:21:10 -06:00: Error in pixScanForForeground: invalid box
+2026-01-29 13:21:11 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 13:21:11 -06:00: Invalid object ref: 2 0 R
+2026-01-29 13:21:30 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 13:21:30 -06:00: Invalid object ref: 2 0 R
+2026-01-29 13:21:30 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 13:21:30 -06:00: Invalid object ref: 2 0 R
+2026-01-29 13:21:35 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 13:21:35 -06:00: Invalid object ref: 2 0 R
+2026-01-29 13:21:35 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 13:21:35 -06:00: Invalid object ref: 2 0 R
+2026-01-29 13:21:35 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 13:21:35 -06:00: Invalid object ref: 2 0 R
+2026-01-29 13:21:45 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 13:21:45 -06:00: Invalid object ref: 2 0 R
+2026-01-29 13:21:45 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 13:21:45 -06:00: Invalid object ref: 2 0 R
+2026-01-29 13:21:54 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-01-29 13:21:54 -06:00: Error in pixScanForForeground: invalid box
+2026-01-29 13:21:55 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 13:21:55 -06:00: Invalid object ref: 2 0 R
+2026-01-29 13:21:55 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 13:21:55 -06:00: Invalid object ref: 2 0 R
+2026-01-29 13:22:09 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 13:22:09 -06:00: Invalid object ref: 2 0 R
+2026-01-29 13:22:09 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 13:22:09 -06:00: Invalid object ref: 2 0 R
+2026-01-29 13:22:14 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 13:22:14 -06:00: Invalid object ref: 2 0 R
+2026-01-29 13:22:38 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 13:22:38 -06:00: Invalid object ref: 2 0 R
+2026-01-29 13:22:38 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 13:22:38 -06:00: Invalid object ref: 2 0 R
+2026-01-29 13:22:47 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 13:22:47 -06:00: Invalid object ref: 2 0 R
+2026-01-29 13:22:47 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 13:22:47 -06:00: Invalid object ref: 2 0 R
+2026-01-29 13:22:47 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 13:22:47 -06:00: Invalid object ref: 2 0 R
+2026-01-29 13:22:52 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 13:22:52 -06:00: Invalid object ref: 2 0 R
+2026-01-29 13:22:52 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 13:22:52 -06:00: Invalid object ref: 2 0 R
+2026-01-29 13:22:52 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 13:22:52 -06:00: Invalid object ref: 2 0 R
+2026-01-29 13:22:52 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 13:22:52 -06:00: Invalid object ref: 2 0 R
+2026-01-29 13:22:52 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 13:22:52 -06:00: Invalid object ref: 2 0 R
+2026-01-29 13:22:52 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 13:22:52 -06:00: Invalid object ref: 2 0 R
+2026-01-29 13:23:02 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 13:23:02 -06:00: Invalid object ref: 2 0 R
+2026-01-29 13:23:07 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 13:23:07 -06:00: Invalid object ref: 2 0 R
+2026-01-29 13:23:21 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 13:23:21 -06:00: Invalid object ref: 2 0 R
+2026-01-29 13:23:21 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 13:23:21 -06:00: Invalid object ref: 2 0 R
+2026-01-29 13:23:40 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 13:23:40 -06:00: Invalid object ref: 2 0 R
+2026-01-29 13:23:54 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-01-29 13:23:54 -06:00: Error in pixScanForForeground: invalid box
+2026-01-29 13:23:54 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 13:23:54 -06:00: Invalid object ref: 2 0 R
+2026-01-29 13:23:58 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-01-29 13:23:58 -06:00: Error in pixScanForForeground: invalid box
+2026-01-29 13:24:04 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 13:24:04 -06:00: Invalid object ref: 2 0 R
+2026-01-29 13:24:23 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 13:24:23 -06:00: Invalid object ref: 2 0 R
+2026-01-29 13:24:23 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 13:24:23 -06:00: Invalid object ref: 2 0 R
+2026-01-29 13:24:23 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 13:24:23 -06:00: Invalid object ref: 2 0 R
+2026-01-29 13:24:23 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 13:24:23 -06:00: Invalid object ref: 2 0 R
+2026-01-29 13:24:27 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 13:24:27 -06:00: Invalid object ref: 2 0 R
+2026-01-29 13:24:32 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 13:24:32 -06:00: Invalid object ref: 2 0 R
+2026-01-29 13:24:32 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 13:24:32 -06:00: Invalid object ref: 2 0 R
+2026-01-29 13:25:15 -06:00: Detected 20 diacritics
+2026-01-29 13:25:20 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 13:25:20 -06:00: Invalid object ref: 2 0 R
+2026-01-29 13:25:29 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 13:25:29 -06:00: Invalid object ref: 2 0 R
+2026-01-29 13:25:29 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 13:25:29 -06:00: Invalid object ref: 2 0 R
+2026-01-29 13:25:33 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 13:25:33 -06:00: Invalid object ref: 2 0 R
+2026-01-29 13:25:33 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 13:25:33 -06:00: Invalid object ref: 2 0 R
+2026-01-29 14:26:38 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 14:26:38 -06:00: Invalid object ref: 2 0 R
+2026-01-29 14:26:38 -06:00: Trying to parse invalid object: {"line":12,"column":6,"offset":148})
+2026-01-29 14:26:38 -06:00: Invalid object ref: 2 0 R
+2026-01-29 14:26:42 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-01-29 14:26:42 -06:00: Error in pixScanForForeground: invalid box
+2026-01-29 14:26:47 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-01-29 14:26:47 -06:00: Error in pixScanForForeground: invalid box
+2026-01-29 14:26:47 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-01-29 14:26:47 -06:00: Error in pixScanForForeground: invalid box
+2026-01-29 16:32:18 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-01-29 16:32:18 -06:00: Error in pixScanForForeground: invalid box
+2026-01-29 16:32:23 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-01-29 16:32:23 -06:00: Error in pixScanForForeground: invalid box
+2026-01-29 16:32:23 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-01-29 16:32:23 -06:00: Error in pixScanForForeground: invalid box
+2026-01-29 16:32:38 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-01-29 16:32:38 -06:00: Error in pixScanForForeground: invalid box
+2026-01-29 16:32:43 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-01-29 16:32:43 -06:00: Error in pixScanForForeground: invalid box
+2026-01-29 16:32:43 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-01-29 16:32:43 -06:00: Error in pixScanForForeground: invalid box
+2026-01-29 16:32:43 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-01-29 16:32:43 -06:00: Error in pixScanForForeground: invalid box
+2026-01-29 16:32:43 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-01-29 16:32:43 -06:00: Error in pixScanForForeground: invalid box
+2026-01-29 16:33:05 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-01-29 16:33:05 -06:00: Error in pixScanForForeground: invalid box
+2026-01-29 16:33:05 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-01-29 16:33:05 -06:00: Error in pixScanForForeground: invalid box
+2026-01-29 16:33:54 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-01-29 16:33:54 -06:00: Error in pixScanForForeground: invalid box
+2026-01-29 16:34:18 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-01-29 16:34:18 -06:00: Error in pixScanForForeground: invalid box
+2026-01-29 16:35:08 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-01-29 16:35:08 -06:00: Error in pixScanForForeground: invalid box
+2026-01-29 16:35:40 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-01-29 16:35:40 -06:00: Error in pixScanForForeground: invalid box
+2026-01-29 16:36:18 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-01-29 16:36:18 -06:00: Error in pixScanForForeground: invalid box
+2026-01-29 16:37:05 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-01-29 16:37:05 -06:00: Error in pixScanForForeground: invalid box
+2026-01-29 16:39:18 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-01-29 16:39:18 -06:00: Error in pixScanForForeground: invalid box
+2026-01-29 16:39:23 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-01-29 16:39:23 -06:00: Error in pixScanForForeground: invalid box
+2026-01-29 16:40:51 -06:00: Detected 20 diacritics
+2026-02-11 12:37:06 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-02-11 12:37:06 -06:00: Error in pixScanForForeground: invalid box
+2026-02-11 12:40:19 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-02-11 12:40:19 -06:00: Error in pixScanForForeground: invalid box
+2026-02-11 12:40:59 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-02-11 12:40:59 -06:00: Error in pixScanForForeground: invalid box
+2026-02-12 11:49:05 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-02-12 11:49:05 -06:00: Error in pixScanForForeground: invalid box
+2026-02-12 11:49:05 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-02-12 11:49:05 -06:00: Error in pixScanForForeground: invalid box
+2026-02-12 11:49:05 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-02-12 11:49:05 -06:00: Error in pixScanForForeground: invalid box
+2026-02-12 11:49:05 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-02-12 11:49:05 -06:00: Error in pixScanForForeground: invalid box
+2026-02-12 11:49:11 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-02-12 11:49:11 -06:00: Error in pixScanForForeground: invalid box
+2026-02-19 11:15:39 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-02-19 11:15:39 -06:00: Error in pixScanForForeground: invalid box
+2026-02-19 11:20:33 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-02-19 11:20:33 -06:00: Error in pixScanForForeground: invalid box
+2026-02-19 11:30:18 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-02-19 11:30:18 -06:00: Error in pixScanForForeground: invalid box
+2026-02-24 11:14:06 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-02-24 11:14:06 -06:00: Error in pixScanForForeground: invalid box
+2026-02-24 11:14:30 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-02-24 11:14:30 -06:00: Error in pixScanForForeground: invalid box
+2026-02-24 11:14:30 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-02-24 11:14:30 -06:00: Error in pixScanForForeground: invalid box
+2026-02-24 11:14:36 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-02-24 11:14:36 -06:00: Error in pixScanForForeground: invalid box
+2026-02-24 11:14:55 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-02-24 11:14:55 -06:00: Error in pixScanForForeground: invalid box
+2026-02-24 11:15:07 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-02-24 11:15:07 -06:00: Error in pixScanForForeground: invalid box
+2026-02-24 11:15:32 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-02-24 11:15:32 -06:00: Error in pixScanForForeground: invalid box
+2026-02-24 11:15:43 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-02-24 11:15:43 -06:00: Error in pixScanForForeground: invalid box
+2026-02-24 11:16:26 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-02-24 11:16:26 -06:00: Error in pixScanForForeground: invalid box
+2026-02-24 11:16:32 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-02-24 11:16:32 -06:00: Error in pixScanForForeground: invalid box
+2026-02-24 11:17:12 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-02-24 11:17:12 -06:00: Error in pixScanForForeground: invalid box
+2026-02-24 11:17:34 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-02-24 11:17:34 -06:00: Error in pixScanForForeground: invalid box
+2026-02-24 11:17:34 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-02-24 11:17:34 -06:00: Error in pixScanForForeground: invalid box
+2026-02-24 11:18:04 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-02-24 11:18:04 -06:00: Error in pixScanForForeground: invalid box
+2026-02-24 11:18:16 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-02-24 11:18:16 -06:00: Error in pixScanForForeground: invalid box
+2026-02-24 11:19:05 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-02-24 11:19:05 -06:00: Error in pixScanForForeground: invalid box
+2026-02-24 11:19:11 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-02-24 11:19:11 -06:00: Error in pixScanForForeground: invalid box
+2026-02-24 11:19:18 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-02-24 11:19:18 -06:00: Error in pixScanForForeground: invalid box
+2026-02-24 11:20:41 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-02-24 11:20:41 -06:00: Error in pixScanForForeground: invalid box
+2026-02-24 11:20:53 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-02-24 11:20:53 -06:00: Error in pixScanForForeground: invalid box
+2026-02-24 11:21:00 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-02-24 11:21:00 -06:00: Error in pixScanForForeground: invalid box
+2026-02-24 11:21:06 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-02-24 11:21:06 -06:00: Error in pixScanForForeground: invalid box
+2026-02-24 11:51:44 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-02-24 11:51:44 -06:00: Error in pixScanForForeground: invalid box
+2026-02-24 11:51:56 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-02-24 11:51:56 -06:00: Error in pixScanForForeground: invalid box
+2026-02-24 11:52:02 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-02-24 11:52:02 -06:00: Error in pixScanForForeground: invalid box
+2026-02-24 14:08:39 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-02-24 14:08:39 -06:00: Error in pixScanForForeground: invalid box
+2026-02-24 14:19:35 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-02-24 14:19:35 -06:00: Error in pixScanForForeground: invalid box
+2026-02-24 14:19:59 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-02-24 14:19:59 -06:00: Error in pixScanForForeground: invalid box
+2026-02-24 14:20:19 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-02-24 14:20:19 -06:00: Error in pixScanForForeground: invalid box
+2026-02-24 14:20:25 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-02-24 14:20:25 -06:00: Error in pixScanForForeground: invalid box
+2026-02-24 14:20:31 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-02-24 14:20:31 -06:00: Error in pixScanForForeground: invalid box
+2026-02-24 14:20:31 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-02-24 14:20:31 -06:00: Error in pixScanForForeground: invalid box
+2026-02-24 14:20:37 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-02-24 14:20:37 -06:00: Error in pixScanForForeground: invalid box
+2026-02-24 14:20:43 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-02-24 14:20:43 -06:00: Error in pixScanForForeground: invalid box
+2026-02-24 14:20:56 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-02-24 14:20:56 -06:00: Error in pixScanForForeground: invalid box
+2026-02-24 14:21:08 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-02-24 14:21:08 -06:00: Error in pixScanForForeground: invalid box
+2026-02-24 14:21:44 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-02-24 14:21:44 -06:00: Error in pixScanForForeground: invalid box
+2026-02-24 14:22:20 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-02-24 14:22:20 -06:00: Error in pixScanForForeground: invalid box
+2026-02-24 14:22:50 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-02-24 14:22:50 -06:00: Error in pixScanForForeground: invalid box
+2026-02-24 14:23:13 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-02-24 14:23:13 -06:00: Error in pixScanForForeground: invalid box
+2026-02-24 14:23:24 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-02-24 14:23:24 -06:00: Error in pixScanForForeground: invalid box
+2026-02-24 14:24:03 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-02-24 14:24:03 -06:00: Error in pixScanForForeground: invalid box
+2026-02-24 14:24:20 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-02-24 14:24:20 -06:00: Error in pixScanForForeground: invalid box
+2026-02-24 14:24:20 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-02-24 14:24:20 -06:00: Error in pixScanForForeground: invalid box
+2026-02-24 14:24:37 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-02-24 14:24:37 -06:00: Error in pixScanForForeground: invalid box
+2026-02-24 14:24:53 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-02-24 14:24:53 -06:00: Error in pixScanForForeground: invalid box
+2026-02-24 14:24:59 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-02-24 14:24:59 -06:00: Error in pixScanForForeground: invalid box
+2026-02-24 14:26:02 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-02-24 14:26:02 -06:00: Error in pixScanForForeground: invalid box
+2026-02-26 12:20:46 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-02-26 12:20:46 -06:00: Error in pixScanForForeground: invalid box
+2026-02-26 12:21:45 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-02-26 12:21:45 -06:00: Error in pixScanForForeground: invalid box
+2026-02-26 12:21:52 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-02-26 12:21:52 -06:00: Error in pixScanForForeground: invalid box
+2026-02-26 12:22:05 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-02-26 12:22:05 -06:00: Error in pixScanForForeground: invalid box
+2026-02-26 12:22:11 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-02-26 12:22:11 -06:00: Error in pixScanForForeground: invalid box
+2026-02-26 12:22:40 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-02-26 12:22:40 -06:00: Error in pixScanForForeground: invalid box
+2026-02-26 12:23:27 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-02-26 12:23:27 -06:00: Error in pixScanForForeground: invalid box
+2026-02-26 12:23:33 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-02-26 12:23:33 -06:00: Error in pixScanForForeground: invalid box
+2026-02-26 12:24:00 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-02-26 12:24:00 -06:00: Error in pixScanForForeground: invalid box
+2026-02-26 12:24:14 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-02-26 12:24:14 -06:00: Error in pixScanForForeground: invalid box
+2026-02-26 12:24:14 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-02-26 12:24:14 -06:00: Error in pixScanForForeground: invalid box
+2026-02-26 12:24:41 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-02-26 12:24:41 -06:00: Error in pixScanForForeground: invalid box
+2026-02-26 12:24:58 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-02-26 12:24:58 -06:00: Error in pixScanForForeground: invalid box
+2026-02-26 12:25:04 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-02-26 12:25:04 -06:00: Error in pixScanForForeground: invalid box
+2026-02-26 12:25:37 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-02-26 12:25:37 -06:00: Error in pixScanForForeground: invalid box
+2026-02-26 12:25:37 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-02-26 12:25:37 -06:00: Error in pixScanForForeground: invalid box
+2026-02-26 12:26:03 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-02-26 12:26:03 -06:00: Error in pixScanForForeground: invalid box
+2026-02-26 12:26:23 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-02-26 12:26:23 -06:00: Error in pixScanForForeground: invalid box
+2026-02-26 12:50:30 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-02-26 12:50:30 -06:00: Error in pixScanForForeground: invalid box
+2026-02-26 12:50:42 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-02-26 12:50:42 -06:00: Error in pixScanForForeground: invalid box
+2026-02-26 12:51:13 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-02-26 12:51:13 -06:00: Error in pixScanForForeground: invalid box
+2026-02-26 12:52:58 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-02-26 12:52:58 -06:00: Error in pixScanForForeground: invalid box
+2026-02-26 12:53:25 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-02-26 12:53:25 -06:00: Error in pixScanForForeground: invalid box
+2026-02-26 12:53:30 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-02-26 12:53:30 -06:00: Error in pixScanForForeground: invalid box
+2026-02-26 12:54:01 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-02-26 12:54:01 -06:00: Error in pixScanForForeground: invalid box
+2026-02-26 12:54:21 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-02-26 12:54:21 -06:00: Error in pixScanForForeground: invalid box
+2026-02-26 12:54:34 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-02-26 12:54:34 -06:00: Error in pixScanForForeground: invalid box
+2026-02-26 12:54:53 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-02-26 12:54:53 -06:00: Error in pixScanForForeground: invalid box
+2026-02-26 13:27:10 -06:00: Error in boxClipToRectangle: box outside rectangle
+2026-02-26 13:27:10 -06:00: Error in pixScanForForeground: invalid box

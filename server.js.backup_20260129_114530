@@ -1,0 +1,1141 @@
+const http = require("http");
+const fs = require("fs");
+const path = require("path");
+const { PDFDocument, rgb } = require("pdf-lib");
+const fontkit = require("@pdf-lib/fontkit");
+const Busboy = require("busboy");
+const { spawnSync } = require("child_process");
+const { PDFParse } = require("pdf-parse");
+const tesseract = require("node-tesseract-ocr");
+const poppler = require("pdf-poppler");
+const { createCanvas, loadImage } = require("canvas");
+
+// Función para detectar RFC - Solo usa OCR (sin coordenadas fijas)
+async function detectarRFCEnTexto(pdfBytes, pageIndex = 1) {
+  try {
+    // Detectar y testar RFC directamente en la imagen
+    const resultado = await detectarYTestarRFCEnImagen(pdfBytes, pageIndex);
+
+    if (resultado) {
+      return resultado;
+    }
+
+    return null;
+  } catch (error) {
+    return null;
+  }
+}
+
+// Función para encontrar coordenadas del RFC en datos TSV de Tesseract
+// COMENTADO - Ya no convertimos coordenadas de imagen a PDF
+// function findRFCCoordinates(tsvData, rfc, imgWidth, imgHeight) {
+//   ...
+// }
+
+// Función para extraer RFC usando OCR y TESTAR directamente en la imagen
+async function detectarYTestarRFCEnImagen(pdfBytes, pageIndex = 1) {
+  let tempPdfPath = null;
+  let imgPath = null;
+
+  try {
+    // Guardar PDF temporalmente
+    tempPdfPath = path.join(
+      __dirname,
+      "temp_uploads",
+      `temp_${Date.now()}.pdf`
+    );
+    fs.writeFileSync(tempPdfPath, pdfBytes);
+
+    // Configuración para poppler
+    const opts = {
+      format: "png",
+      out_dir: path.join(__dirname, "temp_uploads"),
+      out_prefix: `ocr_${Date.now()}`,
+      page: pageIndex + 1, // página 2
+      scale: 2048, // Alta resolución
+    };
+
+    // Convertir página 2 a imagen PNG
+    await poppler.convert(tempPdfPath, opts);
+
+    // Buscar archivo generado
+    const outputName = `${opts.out_prefix}-${opts.page}.png`;
+    imgPath = path.join(opts.out_dir, outputName);
+
+    if (fs.existsSync(imgPath)) {
+      // Aplicar OCR con Tesseract (optimizado)
+      const config = {
+        lang: "spa",
+        oem: 1,
+        psm: 3, // Más rápido
+      };
+
+      // Obtener texto completo
+      const text = await tesseract.recognize(imgPath, config);
+
+      // Ejecutar tesseract directamente para obtener TSV
+      const { execSync } = require("child_process");
+      const tsvPath = imgPath.replace(".png", ".tsv");
+      execSync(
+        `tesseract "${imgPath}" "${tsvPath.replace(
+          ".tsv",
+          ""
+        )}" -l spa --oem 1 --psm 3 tsv`,
+        { encoding: "utf8" }
+      );
+      const tsv = fs.readFileSync(tsvPath, "utf8");
+
+      // Buscar RFC en texto OCR
+      const regex = /n[uú]mero\s*:?\s*([A-ZÑ&]{4}\d{6}[A-Z0-9]{3})/i;
+      const match = text.match(regex);
+
+      if (match && match[1]) {
+        const rfc = match[1].replace(/[^A-Z0-9Ñ&]/g, "").toUpperCase();
+        if (rfc.length === 13) {
+          console.log(`   ✓ RFC: ${rfc}`);
+
+          // Cargar imagen para testar
+          const image = await loadImage(imgPath);
+          const canvas = createCanvas(image.width, image.height);
+          const ctx = canvas.getContext("2d");
+          ctx.drawImage(image, 0, 0);
+
+          const lines = tsv.split("\n");
+          let rfcFound = false;
+          let minX = Infinity,
+            minY = Infinity,
+            maxX = 0,
+            maxY = 0;
+
+          // Buscar el RFC completo primero
+          let foundParts = [];
+          for (let i = 1; i < lines.length; i++) {
+            const cols = lines[i].split("\t");
+            if (cols.length < 12) continue;
+
+            const rawText = cols[11]?.trim() || "";
+            const text = rawText.toUpperCase().replace(/[^A-Z0-9]/g, "");
+            const left = parseInt(cols[6]);
+            const top = parseInt(cols[7]);
+            const w = parseInt(cols[8]);
+            const h = parseInt(cols[9]);
+
+            if (!text || isNaN(left) || isNaN(top)) continue;
+
+            // Buscar el RFC exacto completo primero
+            if (text === rfc) {
+              minX = left;
+              minY = top;
+              maxX = left + w;
+              maxY = top + h;
+              rfcFound = true;
+              foundParts.push(rawText);
+              break; // RFC completo encontrado, salir
+            }
+          }
+
+          // Si no encontró el RFC completo, buscar fragmentos grandes
+          if (!rfcFound) {
+            for (let i = 1; i < lines.length; i++) {
+              const cols = lines[i].split("\t");
+              if (cols.length < 12) continue;
+
+              const rawText = cols[11]?.trim() || "";
+              const text = rawText.toUpperCase().replace(/[^A-Z0-9]/g, "");
+              const left = parseInt(cols[6]);
+              const top = parseInt(cols[7]);
+              const w = parseInt(cols[8]);
+              const h = parseInt(cols[9]);
+
+              if (!text || isNaN(left) || isNaN(top)) continue;
+
+              // Buscar fragmentos de 8+ caracteres (más restrictivo para evitar matches en dirección)
+              if (text.length >= 8 && rfc.includes(text)) {
+                minX = Math.min(minX, left);
+                minY = Math.min(minY, top);
+                maxX = Math.max(maxX, left + w);
+                maxY = Math.max(maxY, top + h);
+                rfcFound = true;
+                foundParts.push(rawText);
+              }
+            }
+          }
+
+          // Cargar fuente Montserrat
+          const { registerFont } = require("canvas");
+          registerFont(
+            path.join(__dirname, "fonts", "Montserrat-Regular.ttf"),
+            { family: "Montserrat" }
+          );
+
+          let x, y, width, height;
+
+          // Si encontramos coordenadas, usar las reales
+          if (rfcFound && minX < Infinity) {
+            x = minX;
+            y = minY;
+            width = maxX - minX;
+            height = maxY - minY;
+          } else {
+            // Fallback OBLIGATORIO: buscar "b)" y "número" o usar posición por defecto
+            let fallbackY = 690;
+            let fallbackX = 970;
+            let foundB = false;
+
+            // Buscar "b)" seguido de "número"
+            for (let i = 1; i < lines.length; i++) {
+              const cols = lines[i].split("\t");
+              if (cols.length < 12) continue;
+              const text = cols[11]?.trim().toLowerCase() || "";
+
+              if (text.includes("b)")) {
+                foundB = true;
+                for (let j = i; j < Math.min(i + 20, lines.length); j++) {
+                  const cols2 = lines[j].split("\t");
+                  if (cols2.length < 12) continue;
+                  const text2 = cols2[11]?.trim().toLowerCase() || "";
+
+                  if (text2.includes("número") && !text2.includes("edificio")) {
+                    fallbackY = parseInt(cols2[7]) || fallbackY;
+                    fallbackX =
+                      parseInt(cols2[6]) + parseInt(cols2[8]) + 50 || fallbackX;
+                    break;
+                  }
+                }
+                if (foundB) break;
+              }
+            }
+
+            // Usar fallback (coordenadas aproximadas o detectadas)
+            x = fallbackX - 10;
+            y = fallbackY - 8;
+            width = 240;
+            height = 38;
+          }
+
+          // SIEMPRE dibujar rectángulo negro
+          ctx.fillStyle = "#000000";
+          ctx.fillRect(
+            x,
+            y,
+            width + (rfcFound ? 25 : 0),
+            height + (rfcFound ? 16 : 0)
+          );
+
+          // Texto "1. RFC" centrado
+          ctx.fillStyle = "#FFFFFF";
+          ctx.font = "bold 38px Montserrat";
+          ctx.textAlign = "center";
+          ctx.fillText("1. RFC", x + width / 2, y + height / 2 + 18);
+
+          // Guardar imagen testada
+          const testedImgPath = path.join(
+            opts.out_dir,
+            `tested_${Date.now()}.png`
+          );
+          const buffer = canvas.toBuffer("image/png");
+          fs.writeFileSync(testedImgPath, buffer);
+
+          // Limpiar imagen original
+          fs.unlinkSync(imgPath);
+
+          return {
+            rfc: rfc,
+            testedImagePath: testedImgPath,
+          };
+        }
+      }
+    }
+
+    return null;
+  } catch (error) {
+    console.log(`⚠ OCR: ${error.message}`);
+    return null;
+  } finally {
+    // Limpiar PDF temporal
+    if (tempPdfPath && fs.existsSync(tempPdfPath)) fs.unlinkSync(tempPdfPath);
+  }
+}
+
+// Buscar coordenadas del RFC en la imagen (en píxeles)
+function findRFCCoordinatesEnImagen(tsvData, rfc) {
+  try {
+    const lines = tsvData.split("\n");
+    const rfcChars = rfc.split("");
+    const foundPositions = [];
+
+    for (let i = 1; i < lines.length; i++) {
+      const cols = lines[i].split("\t");
+      if (cols.length < 12) continue;
+
+      const text = cols[11]?.trim().toUpperCase();
+      const left = parseInt(cols[6]);
+      const top = parseInt(cols[7]);
+      const width = parseInt(cols[8]);
+      const height = parseInt(cols[9]);
+
+      if (!isNaN(left) && !isNaN(top) && text) {
+        for (const char of rfcChars) {
+          if (text.includes(char)) {
+            foundPositions.push({ left, top, width, height });
+            break;
+          }
+        }
+      }
+    }
+
+    if (foundPositions.length > 0) {
+      const minLeft = Math.min(...foundPositions.map((p) => p.left));
+      const minTop = Math.min(...foundPositions.map((p) => p.top));
+      const maxRight = Math.max(...foundPositions.map((p) => p.left + p.width));
+      const maxBottom = Math.max(
+        ...foundPositions.map((p) => p.top + p.height)
+      );
+
+      return {
+        x: minLeft,
+        y: minTop,
+        width: maxRight - minLeft,
+        height: maxBottom - minTop,
+      };
+    }
+
+    return null;
+  } catch (error) {
+    return null;
+  }
+}
+
+// Verificar si qpdf está disponible
+function isQpdfAvailable() {
+  try {
+    const r = spawnSync("qpdf", ["--version"], { stdio: "pipe" });
+    return r.status === 0;
+  } catch (e) {
+    return false;
+  }
+}
+
+const QPDF_AVAILABLE = isQpdfAvailable();
+const EDIT_PASSWORD = "F1N4NZ4S2025";
+
+// Crear directorios necesarios al iniciar
+function initializeDirectories() {
+  const directories = [
+    path.join(__dirname, "contratos"),
+    path.join(__dirname, "tested_Censurado"),
+    path.join(__dirname, "temp_uploads"),
+    path.join(__dirname, "config"),
+    path.join(__dirname, "build"),
+  ];
+
+  directories.forEach((dir) => {
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+  });
+}
+
+// Inicializar directorios
+initializeDirectories();
+
+// Función para convertir milímetros a puntos
+// COMENTADO - Ya no usamos configuraciones manuales con conversión de coordenadas
+// function mmToPoints(mm) {
+//   return mm * 2.83465;
+// }
+
+// COMENTADO - Ya no usamos configuraciones manuales con colores hex
+// function hexToRgb(hex) {
+//   const bigint = parseInt(hex.slice(1), 16);
+//   const r = (bigint >> 16) & 255;
+//   const g = (bigint >> 8) & 255;
+//   const b = bigint & 255;
+//   return rgb(r / 255, g / 255, b / 255);
+// }
+
+// COMENTADO - Ya no usamos heurísticas para regiones manuales
+// function shouldCensorRegion(region, pageIndex) {
+//   if (region.smartCensor) {
+//     if (pageIndex === 5) {
+//       const yMm = region.y;
+//       const xMm = region.x;
+//       return xMm >= 115 && xMm <= 160 && yMm >= 75 && yMm <= 105;
+//     }
+//   }
+//   return true;
+// }
+
+// Función para pixelar RFC en imagen y reemplazar página
+// COMENTADO - Ya no pixelamos en PDF, testamos directamente en imagen PNG
+// async function pixelarRFCEnImagen(pdfDoc, page, rfcInfo) {
+//   ...
+// }
+
+async function censorPdf(inputPath, outputPath, censorRegions) {
+  console.log(`📄 ${path.basename(inputPath)}`);
+
+  const existingPdfBytes = fs.readFileSync(inputPath);
+  const pdfDoc = await PDFDocument.load(existingPdfBytes);
+  const pages = pdfDoc.getPages();
+
+  // DETECCIÓN Y TESTADO AUTOMÁTICO DE RFC EN PÁGINA 2
+  const rfcDetectado = await detectarRFCEnTexto(existingPdfBytes, 1);
+
+  // Si se detectó RFC y se testó en imagen, reemplazar página 2
+  if (
+    rfcDetectado?.testedImagePath &&
+    fs.existsSync(rfcDetectado.testedImagePath)
+  ) {
+    const page2 = pages[1];
+    const { width, height } = page2.getSize();
+
+    // Cargar imagen testada
+    const imgBuffer = fs.readFileSync(rfcDetectado.testedImagePath);
+    const pngImage = await pdfDoc.embedPng(imgBuffer);
+
+    // NO limpiar con blanco - dibujar imagen directamente sobre la página
+    page2.drawImage(pngImage, {
+      x: 0,
+      y: 0,
+      width: width,
+      height: height,
+      opacity: 1.0, // Sin transparencia
+    });
+
+    // Limpiar imagen temporal
+    fs.unlinkSync(rfcDetectado.testedImagePath);
+  }
+
+  // Procesar página 2: redimensionar al 71% y agregar leyenda
+  if (pages.length >= 2) {
+    const page2 = pages[1];
+    const { width, height } = page2.getSize();
+
+    // PASO 1: Redimensionar el contenido al 71%
+    const escalaContrato = 0.71;
+    page2.scaleContent(escalaContrato, escalaContrato);
+
+    // PASO 2: Calcular dimensiones escaladas y posicionar
+    const scaledWidth = width * escalaContrato;
+    const scaledHeight = height * escalaContrato;
+    const offsetX = (width - scaledWidth) / 2;
+    const offsetY = height - scaledHeight - 15;
+
+    page2.translateContent(offsetX, offsetY);
+
+    // PASO 3: Copiar página 2 a una nueva página (para evitar que la leyenda se transforme)
+    const [copiedPage] = await pdfDoc.copyPages(pdfDoc, [1]);
+    pdfDoc.removePage(1);
+    pdfDoc.insertPage(1, copiedPage);
+
+    const newPage2 = pdfDoc.getPages()[1];
+
+    // PASO 4: Dibujar la leyenda en la nueva página (sin transformaciones)
+    const leyendaTexto = [
+      "VERSIÓN PÚBLICA DERIVADA DE LA OBLIGACIÓN ESTABLECIDA POR EL ARTÍCULO 65, FRACCIÓN X, MISMA QUE DICE A LA LETRA «…Las contrataciones de servicios profesionales por honorarios…»:",
+      "CUYO DATO TESTADO ES REGISTRO FEDERAL DE CONTRIBUYENTES.",
+      " 1.- RFC (una línea).",
+      "",
+      "De conformidad a: Ley General de Transparencia y Acceso a la Información Pública vigente, Artículo 103 La clasificación de la información se llevará a cabo en el momento en que:",
+      "I. Se reciba una solicitud de acceso a la información; II. Se determine mediante resolución de autoridad competente, o III. Se generen versiones públicas para dar cumplimiento a las obligaciones",
+      "de transparencia previstas en esta Ley. Artículo 115. Se considera información confidencial la que contiene datos personales concernientes a una persona física identificada o identificable.",
+      "La información confidencial no estará sujeta a temporalidad alguna y sólo podrán tener acceso a ella los titulares de la misma, sus representantes y las personas servidoras públicas facultadas",
+      "para ello. Asimismo, será información confidencial aquella que presenten las personas particulares a los sujetos obligados, siempre que tengan el derecho a ello, de conformidad con lo dispuesto",
+      "por las leyes o los tratados internacionales. Ley General de Protección de Datos Personales en Posesión de Sujetos Obligados vigente, Artículo 3 Para los efectos de la presente Ley se entenderá",
+      "por: fracción X Datos personales sensibles: Aquellos que se refieran a la esfera más íntima de su titular, o cuya utilización indebida pueda dar origen a discriminación o conlleve un riesgo grave",
+      "para ésta. De manera enunciativa más no limitativa, se consideran sensibles los datos personales que puedan revelar aspectos como origen racial o étnico, estado de salud presente o futuro,",
+      "información genética, creencias religiosas, filosóficas y morales, opiniones políticas y preferencia sexual. Ley de Transparencia y Acceso a la Información Pública con Sentido Social y Buen",
+      "Gobierno del Estado de Oaxaca vigente, Artículo 3. Para los efectos de la presente Ley se entiende por: fracción VIII. Clasificación de la información: Acto por el cuál se determina que la información",
+      "que posee el sujeto obligado es pública, reservada o confidencial, de acuerdo con lo establecido en los ordenamientos legales de la materia; fracción XXI. Información confidencial: La información en",
+      "posesión de los sujetos obligados, que refiera a la vida privada y/o datos personales, por lo que no puede ser difundida, publicada o dada a conocer, excepto en aquellos casos en que así lo contemple",
+      "la presente Ley y la Ley de la materia; Artículo 60, párrafo III. Aquella información particular de la referida en este Título que se ubique en alguno de los supuestos de clasificación señalados en los",
+      "artículos 129 y 134 de la presente Ley, no será objeto de la publicación a que se refiere este mismo artículo, salvo que pueda ser elaborada una versión pública. En todo caso se aplicará la prueba de",
+      "daño a que se refiere el artículo 107 de la Ley General y el correspondiente de la presente Ley; Artículo 70. Los sujetos obligados del Estado publicarán las obligaciones de transparencia comunes a",
+      "las que se refiere el artículo 65 de la Ley General, debiendo ponerla a disposición del público y mantenerla actualizada en los respectivos medios electrónicos que corresponda al ámbito de su",
+      "competencia, sin que medie solicitud de información o requerimiento alguno; Artículo 119. La clasificación de la información se llevará a cabo en el momento en que: Fracción III. Se generen versiones",
+      "públicas para dar cumplimiento a las obligaciones de transparencia previstas en la Ley General y en esta Ley. Artículo 134. Se considera información confidencial la que se contiene datos personales",
+      "concernientes a una persona física identificada o identificable.",
+    ];
+
+    // Cargar fuente Montserrat para leyenda
+    const montserratBytes = fs.readFileSync(
+      path.join(__dirname, "fonts", "Montserrat-Regular.ttf")
+    );
+    pdfDoc.registerFontkit(fontkit);
+    const montserratFont = await pdfDoc.embedFont(montserratBytes);
+
+    const fontSize = 5.5;
+    const lineHeight = 6.5;
+    const margin = 15;
+    const textWidth = width - margin * 2;
+    const leyendaHeight = leyendaTexto.length * lineHeight + margin * 2;
+    const leyendaY = 10;
+
+    // Dibujar borde de la leyenda sin fondo blanco
+    newPage2.drawRectangle({
+      x: margin - 5,
+      y: leyendaY,
+      width: textWidth + 10,
+      height: leyendaHeight,
+      borderColor: rgb(0, 0, 0),
+      borderWidth: 0.5,
+    });
+
+    // Función para justificar texto manualmente
+    function drawJustifiedText(text, x, y, maxWidth, font, size) {
+      if (!text || text.trim() === "") {
+        return; // Línea vacía
+      }
+
+      const words = text.trim().split(/\s+/);
+
+      // Si es una sola palabra o línea corta, alinear a la izquierda
+      if (words.length === 1) {
+        newPage2.drawText(text, {
+          x: x,
+          y: y,
+          size: size,
+          font: font,
+          color: rgb(0, 0, 0),
+        });
+        return;
+      }
+
+      // Calcular ancho total de todas las palabras
+      let totalWordWidth = 0;
+      words.forEach((word) => {
+        totalWordWidth += font.widthOfTextAtSize(word, size);
+      });
+
+      // Calcular espacio disponible para distribuir entre palabras
+      const totalSpaceWidth = maxWidth - totalWordWidth;
+      const spaceWidth = totalSpaceWidth / (words.length - 1);
+
+      // Dibujar cada palabra con el espacio calculado
+      let currentX = x;
+      words.forEach((word, index) => {
+        newPage2.drawText(word, {
+          x: currentX,
+          y: y,
+          size: size,
+          font: font,
+          color: rgb(0, 0, 0),
+        });
+
+        const wordWidth = font.widthOfTextAtSize(word, size);
+        currentX += wordWidth + spaceWidth;
+      });
+    }
+
+    // Dibujar cada línea (justificar solo las largas)
+    leyendaTexto.forEach((linea, index) => {
+      const yPos =
+        leyendaY + leyendaHeight - (margin + index * lineHeight) - fontSize;
+
+      // No justificar líneas 1 (índice 1), 2 (índice 2), 3 (índice 3) y última
+      const noJustificar = [1, 2, 3, leyendaTexto.length - 1];
+
+      if (noJustificar.includes(index) || !linea.trim()) {
+        // Alinear a la izquierda sin justificar
+        newPage2.drawText(linea, {
+          x: margin,
+          y: yPos,
+          size: fontSize,
+          font: montserratFont,
+          color: rgb(0, 0, 0),
+        });
+      } else {
+        // Justificar
+        drawJustifiedText(
+          linea,
+          margin,
+          yPos,
+          textWidth,
+          montserratFont,
+          fontSize
+        );
+      }
+    });
+  }
+  const pdfBytes = await pdfDoc.save();
+  fs.writeFileSync(outputPath, pdfBytes);
+
+  // Aplicar encriptación si qpdf está disponible
+  if (QPDF_AVAILABLE) {
+    try {
+      await encryptPdfWithQpdf(outputPath, EDIT_PASSWORD);
+    } catch (err) {
+      console.log(`⚠ Encriptar: ${err.message}`);
+    }
+  }
+
+  // Renombrar archivo a mayúsculas
+  const dir = path.dirname(outputPath);
+  const filename = path.basename(outputPath);
+  const uppercaseFilename = filename.toUpperCase();
+
+  if (filename !== uppercaseFilename) {
+    const newPath = path.join(dir, uppercaseFilename);
+    fs.renameSync(outputPath, newPath);
+  }
+
+  console.log(`✅ ${path.basename(uppercaseFilename || filename)}\n`);
+}
+
+/**
+ * Encripta el PDF usando qpdf para proteger contra edición.
+ * Requiere qpdf instalado (Windows: choco install qpdf)
+ */
+async function encryptPdfWithQpdf(filePath, ownerPassword) {
+  return new Promise((resolve, reject) => {
+    const tmpPath = `${filePath}.enc`;
+
+    const args = [
+      "--encrypt",
+      "", // user password vacío (abre sin contraseña)
+      ownerPassword, // owner password (protege edición)
+      "256", // encriptación AES-256
+      "--modify=none", // prohibir modificación
+      "--print=full", // permitir impresión
+      "--",
+      filePath,
+      tmpPath,
+    ];
+
+    const res = spawnSync("qpdf", args, { stdio: "pipe" });
+
+    if (res.error) {
+      return reject(res.error);
+    }
+    if (res.status !== 0) {
+      return reject(new Error(`qpdf finalizó con código ${res.status}`));
+    }
+
+    // Reemplazar archivo original por el encriptado
+    fs.renameSync(tmpPath, filePath);
+    resolve();
+  });
+}
+
+// Crear servidor HTTP
+const PORT = 3001;
+const server = http.createServer((req, res) => {
+  // CORS headers para todas las respuestas
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader(
+    "Access-Control-Allow-Methods",
+    "GET, POST, OPTIONS, PUT, DELETE"
+  );
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  res.setHeader("Access-Control-Max-Age", "86400");
+
+  if (req.method === "OPTIONS") {
+    res.writeHead(200);
+    res.end();
+    return;
+  }
+
+  // Log de solicitudes para debugging
+  console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
+
+  // API Routes
+  if (req.url === "/api/pdfs" && req.method === "GET") {
+    try {
+      const contractsDir = path.join(__dirname, "contratos");
+      if (!fs.existsSync(contractsDir)) {
+        fs.mkdirSync(contractsDir, { recursive: true });
+      }
+      const files = fs
+        .readdirSync(contractsDir)
+        .filter((file) => file.toLowerCase().endsWith(".pdf"));
+
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(files));
+    } catch (error) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: error.message }));
+    }
+    return;
+  }
+
+  if (req.url.startsWith("/api/pdf/") && req.method === "GET") {
+    const filename = decodeURIComponent(req.url.replace("/api/pdf/", ""));
+    const filepath = path.join(__dirname, "contratos", filename);
+
+    try {
+      if (fs.existsSync(filepath)) {
+        const pdf = fs.readFileSync(filepath);
+        res.writeHead(200, { "Content-Type": "application/pdf" });
+        res.end(pdf);
+      } else {
+        res.writeHead(404, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "PDF not found" }));
+      }
+    } catch (error) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: error.message }));
+    }
+    return;
+  }
+
+  if (req.url === "/api/process" && req.method === "POST") {
+    const bb = Busboy({ headers: req.headers });
+    const uploadDir = path.join(__dirname, "temp_uploads");
+    const outputDir = path.join(__dirname, "tested_Censurado");
+
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+    if (!fs.existsSync(outputDir)) {
+      fs.mkdirSync(outputDir, { recursive: true });
+    }
+
+    const uploadedFiles = [];
+    const processLogs = [];
+    const filePromises = [];
+
+    // Manejar archivos
+    bb.on("file", (fieldname, file, info) => {
+      const filename = info.filename;
+      const filepath = path.join(uploadDir, filename);
+      const outputPath = path.join(outputDir, filename);
+
+      const writeStream = fs.createWriteStream(filepath);
+      file.pipe(writeStream);
+
+      // Crear promesa para procesar después
+      const filePromise = new Promise((resolve) => {
+        writeStream.on("finish", () => {
+          uploadedFiles.push({ filename, filepath, outputPath });
+          resolve();
+        });
+        writeStream.on("error", (error) => {
+          console.error(`❌ Error guardando ${filename}: ${error.message}`);
+          resolve();
+        });
+      });
+
+      filePromises.push(filePromise);
+    });
+
+    bb.on("close", async () => {
+      // Esperar a que se guarden todos los archivos
+      await Promise.all(filePromises);
+
+      console.log(
+        `\n📄 Recibidos ${uploadedFiles.length} archivos para procesar\n`
+      );
+
+      // RESPONDER INMEDIATAMENTE
+      res.writeHead(202, { "Content-Type": "application/json" });
+      res.end(
+        JSON.stringify({
+          success: true,
+          message: `Procesando ${uploadedFiles.length} archivos en segundo plano`,
+          total: uploadedFiles.length,
+          status: "processing",
+        })
+      );
+
+      // PROCESAR EN SEGUNDO PLANO (no bloquea la respuesta)
+      (async () => {
+        for (let i = 0; i < uploadedFiles.length; i++) {
+          const { filename, filepath, outputPath } = uploadedFiles[i];
+          try {
+            console.log(`[${i + 1}/${uploadedFiles.length}] ${filename}`);
+            await censorPdf(filepath, outputPath, {});
+            if (fs.existsSync(filepath)) fs.unlinkSync(filepath);
+            processLogs.push({ file: filename, success: true });
+            console.log(`✅ Completado\n`);
+          } catch (error) {
+            console.error(`❌ ${filename}: ${error.message}`);
+            processLogs.push({
+              file: filename,
+              success: false,
+              error: error.message,
+            });
+          }
+        }
+
+        // Guardar log de errores en TXT
+        const errorLogs = processLogs.filter((log) => !log.success);
+        if (errorLogs.length > 0) {
+          const timestamp = new Date().toLocaleString("es-MX");
+          let logContent = `=================================================\n`;
+          logContent += `LOG DE ERRORES - ${timestamp}\n`;
+          logContent += `=================================================\n\n`;
+          logContent += `Total procesados: ${uploadedFiles.length}\n`;
+          logContent += `Exitosos: ${
+            processLogs.filter((l) => l.success).length
+          }\n`;
+          logContent += `Fallidos: ${errorLogs.length}\n\n`;
+          logContent += `ARCHIVOS CON ERROR:\n`;
+          logContent += `-------------------------------------------------\n\n`;
+
+          errorLogs.forEach((log, index) => {
+            logContent += `${index + 1}. ${log.file}\n`;
+            logContent += `   Error: ${log.error}\n\n`;
+          });
+
+          const logPath = path.join(outputDir, "errores_procesamiento.txt");
+          fs.writeFileSync(logPath, logContent, "utf8");
+          console.log(
+            `\n📝 Log de errores guardado: errores_procesamiento.txt`
+          );
+        }
+
+        console.log(
+          `\n✅ Procesamiento completo: ${
+            processLogs.filter((l) => l.success).length
+          }/${uploadedFiles.length} exitosos\n`
+        );
+      })();
+    });
+
+    bb.on("error", (error) => {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: error.message }));
+    });
+
+    req.pipe(bb);
+    return;
+  }
+
+  // Listar archivos testados
+  if (req.url === "/api/tested-files" && req.method === "GET") {
+    try {
+      const testedDir = path.join(__dirname, "tested_Censurado");
+      if (!fs.existsSync(testedDir)) {
+        fs.mkdirSync(testedDir, { recursive: true });
+      }
+      const files = fs
+        .readdirSync(testedDir)
+        .filter((f) => f.toLowerCase().endsWith(".pdf"))
+        .map((f) => {
+          const stats = fs.statSync(path.join(testedDir, f));
+          return {
+            name: f,
+            size: stats.size,
+            date: stats.mtime,
+          };
+        })
+        .sort((a, b) => b.date - a.date);
+
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ success: true, files }));
+    } catch (error) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: error.message }));
+    }
+    return;
+  }
+
+  // Descargar archivo testado individual
+  if (req.url.startsWith("/api/download-tested/") && req.method === "GET") {
+    try {
+      const fileName = decodeURIComponent(
+        req.url.split("/api/download-tested/")[1]
+      );
+      const filePath = path.join(__dirname, "tested_Censurado", fileName);
+
+      if (!fs.existsSync(filePath)) {
+        res.writeHead(404, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Archivo no encontrado" }));
+        return;
+      }
+
+      const fileData = fs.readFileSync(filePath);
+      res.writeHead(200, {
+        "Content-Type": "application/pdf",
+        "Content-Disposition": `attachment; filename="${fileName}"`,
+        "Content-Length": fileData.length,
+      });
+      res.end(fileData);
+    } catch (error) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: error.message }));
+    }
+    return;
+  }
+
+  // Descargar todos los testados en ZIP
+  if (req.url === "/api/download-all-tested" && req.method === "GET") {
+    try {
+      const archiver = require("archiver");
+      const testedDir = path.join(__dirname, "tested_Censurado");
+
+      if (!fs.existsSync(testedDir)) {
+        res.writeHead(404, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "No hay archivos testados" }));
+        return;
+      }
+
+      const files = fs
+        .readdirSync(testedDir)
+        .filter((f) => f.toLowerCase().endsWith(".pdf"));
+
+      if (files.length === 0) {
+        res.writeHead(404, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "No hay archivos para descargar" }));
+        return;
+      }
+
+      const timestamp = new Date()
+        .toISOString()
+        .replace(/[:.]/g, "-")
+        .slice(0, -5);
+      const zipName = `Testados_${timestamp}.zip`;
+
+      res.writeHead(200, {
+        "Content-Type": "application/zip",
+        "Content-Disposition": `attachment; filename="${zipName}"`,
+      });
+
+      const archive = archiver("zip", { zlib: { level: 9 } });
+      archive.pipe(res);
+
+      // Agregar archivos PDF
+      files.forEach((file) => {
+        const filePath = path.join(testedDir, file);
+        archive.file(filePath, { name: file });
+      });
+
+      // Agregar log de errores si existe
+      const errorLogPath = path.join(testedDir, "errores_procesamiento.txt");
+      if (fs.existsSync(errorLogPath)) {
+        archive.file(errorLogPath, { name: "errores_procesamiento.txt" });
+      }
+
+      archive.finalize();
+    } catch (error) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: error.message }));
+    }
+    return;
+  }
+
+  // Eliminar todos los archivos testados
+  if (req.url === "/api/clear-tested" && req.method === "POST") {
+    try {
+      const testedDir = path.join(__dirname, "tested_Censurado");
+
+      if (!fs.existsSync(testedDir)) {
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(
+          JSON.stringify({
+            success: true,
+            message: "No hay archivos para eliminar",
+          })
+        );
+        return;
+      }
+
+      const files = fs
+        .readdirSync(testedDir)
+        .filter((f) => f.toLowerCase().endsWith(".pdf"));
+
+      files.forEach((file) => {
+        const filePath = path.join(testedDir, file);
+        fs.unlinkSync(filePath);
+      });
+
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(
+        JSON.stringify({
+          success: true,
+          message: `${files.length} archivo${
+            files.length !== 1 ? "s" : ""
+          } eliminado${files.length !== 1 ? "s" : ""}`,
+        })
+      );
+    } catch (error) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: error.message }));
+    }
+    return;
+  }
+
+  if (req.url === "/api/open-folder" && req.method === "GET") {
+    try {
+      const { exec } = require("child_process");
+      const testedDir = path.join(__dirname, "tested_Censurado");
+      if (!fs.existsSync(testedDir)) {
+        fs.mkdirSync(testedDir, { recursive: true });
+      }
+      exec(`explorer "${testedDir}"`);
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ success: true }));
+    } catch (error) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: error.message }));
+    }
+    return;
+  }
+
+  // Guardar configuración de contrato
+  if (req.url === "/api/config/save" && req.method === "POST") {
+    let body = "";
+    req.on("data", (chunk) => {
+      body += chunk.toString();
+    });
+    req.on("end", () => {
+      try {
+        const { contractName, config } = JSON.parse(body);
+        const configDir = path.join(__dirname, "config");
+        if (!fs.existsSync(configDir))
+          fs.mkdirSync(configDir, { recursive: true });
+        const configFile = path.join(configDir, `${contractName}.json`);
+        fs.writeFileSync(configFile, JSON.stringify(config, null, 2));
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ success: true }));
+      } catch (error) {
+        res.writeHead(500, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: error.message }));
+      }
+    });
+    return;
+  }
+
+  // Cargar configuración de contrato
+  if (req.url.startsWith("/api/config/load") && req.method === "GET") {
+    try {
+      const urlObj = new URL(req.url, `http://localhost:${PORT}`);
+      const name = urlObj.searchParams.get("name");
+      const configFile = path.join(__dirname, "config", `${name}.json`);
+      if (fs.existsSync(configFile)) {
+        const data = fs.readFileSync(configFile, "utf8");
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(data);
+      } else {
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify(null));
+      }
+    } catch (error) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: error.message }));
+    }
+    return;
+  }
+
+  // Guardar preset activo (usar preset para todos los PDFs)
+  if (req.url === "/api/config/set-active" && req.method === "POST") {
+    let body = "";
+    req.on("data", (chunk) => {
+      body += chunk.toString();
+    });
+    req.on("end", () => {
+      try {
+        const { presetName } = JSON.parse(body);
+        const configDir = path.join(__dirname, "config");
+        if (!fs.existsSync(configDir))
+          fs.mkdirSync(configDir, { recursive: true });
+        const activeFile = path.join(configDir, "active_preset.json");
+        fs.writeFileSync(activeFile, JSON.stringify({ presetName }, null, 2));
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ success: true }));
+      } catch (error) {
+        res.writeHead(500, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: error.message }));
+      }
+    });
+    return;
+  }
+
+  // Obtener preset activo
+  if (req.url === "/api/config/active" && req.method === "GET") {
+    try {
+      const activeFile = path.join(__dirname, "config", "active_preset.json");
+      if (fs.existsSync(activeFile)) {
+        const data = fs.readFileSync(activeFile, "utf8");
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(data);
+      } else {
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify(null));
+      }
+    } catch (error) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: error.message }));
+    }
+    return;
+  }
+
+  // Servir archivos estáticos
+  let filepath = path.join(__dirname, req.url === "/" ? "index.html" : req.url);
+
+  // Prevenir path traversal
+  const normalizedPath = path.normalize(filepath);
+  if (!normalizedPath.startsWith(__dirname)) {
+    res.writeHead(403, { "Content-Type": "text/html" });
+    res.end("<h1>403 - Acceso denegado</h1>");
+    return;
+  }
+
+  fs.readFile(filepath, (err, data) => {
+    if (err) {
+      res.writeHead(404, { "Content-Type": "text/html" });
+      res.end("<h1>404 - Archivo no encontrado</h1>");
+      return;
+    }
+
+    const ext = path.extname(filepath);
+    const mimeTypes = {
+      ".html": "text/html",
+      ".css": "text/css",
+      ".js": "text/javascript",
+      ".json": "application/json",
+      ".png": "image/png",
+      ".jpg": "image/jpeg",
+      ".gif": "image/gif",
+      ".svg": "image/svg+xml",
+      ".ico": "image/x-icon",
+    };
+
+    const contentType = mimeTypes[ext] || "text/plain";
+    res.writeHead(200, {
+      "Content-Type": contentType,
+      "Cache-Control": "no-cache",
+    });
+    res.end(data);
+  });
+});
+
+server.listen(PORT, "0.0.0.0", () => {
+  const os = require("os");
+  const networkInterfaces = os.networkInterfaces();
+  let localIP = "localhost";
+
+  // Obtener IP local de la red
+  for (const name of Object.keys(networkInterfaces)) {
+    for (const net of networkInterfaces[name]) {
+      // Ignorar direcciones IPv6 y loopback
+      if (net.family === "IPv4" && !net.internal) {
+        localIP = net.address;
+        break;
+      }
+    }
+    if (localIP !== "localhost") break;
+  }
+
+  console.log(`✅ Servidor iniciado en puerto ${PORT}`);
+  console.log(`\n📍 ACCESOS DISPONIBLES:`);
+  console.log(`   Local:    http://localhost:${PORT}`);
+  console.log(`   Red:      http://${localIP}:${PORT}`);
+  console.log(
+    `\n🌐 Otras PCs pueden acceder usando: http://${localIP}:${PORT}`
+  );
+  console.log(`⏹️  Presiona Ctrl+C para detener el servidor\n`);
+
+  // Abrir navegador automáticamente (Windows)
+  try {
+    const { exec } = require("child_process");
+    exec(`start http://localhost:${PORT}`);
+  } catch (e) {
+    // Silencioso
+  }
+});
+
+process.on("SIGINT", () => {
+  process.exit(0);
+});

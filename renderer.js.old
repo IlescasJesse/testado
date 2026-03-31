@@ -1,0 +1,213 @@
+const processBtn = document.getElementById("processBtn");
+const fileInput = document.getElementById("fileInput");
+const loadFilesBtn = document.getElementById("loadFilesBtn");
+const uploadArea = document.getElementById("uploadArea");
+const loadingOverlay = document.getElementById("loadingOverlay");
+const progressInfo = document.getElementById("progressInfo");
+const resultsModal = document.getElementById("resultsModal");
+const closeModalBtn = document.getElementById("closeModalBtn");
+const successCount = document.getElementById("successCount");
+const errorCount = document.getElementById("errorCount");
+const downloadZipBtn = document.getElementById("downloadZipBtn");
+const openFolderBtn = document.getElementById("openFolderBtn");
+const resultsTable = document.getElementById("resultsTable").querySelector("tbody");
+
+let selectedFiles = [];
+let pollingInterval = null;
+
+// Manejar carga de archivos
+loadFilesBtn.addEventListener("click", () => {
+  fileInput.click();
+});
+
+uploadArea.addEventListener("click", () => {
+  fileInput.click();
+});
+
+// Drag and drop
+uploadArea.addEventListener("dragover", (e) => {
+  e.preventDefault();
+  uploadArea.classList.add("dragover");
+});
+
+uploadArea.addEventListener("dragleave", () => {
+  uploadArea.classList.remove("dragover");
+});
+
+uploadArea.addEventListener("drop", (e) => {
+  e.preventDefault();
+  uploadArea.classList.remove("dragover");
+  
+  const files = Array.from(e.dataTransfer.files).filter(f => f.name.toLowerCase().endsWith(".pdf"));
+  if (files.length > 0) {
+    selectedFiles = files;
+    showFileCount();
+  }
+});
+
+fileInput.addEventListener("change", (e) => {
+  const files = Array.from(e.target.files);
+  selectedFiles = files;
+  showFileCount();
+});
+
+function showFileCount() {
+  const count = selectedFiles.length;
+  if (count > 0) {
+    uploadArea.innerHTML = `
+      <div class="upload-icon">📁</div>
+      <div class="upload-text">${count} archivo${count > 1 ? 's' : ''} seleccionado${count > 1 ? 's' : ''}</div>
+      <div class="upload-subtext">Haz clic en "Procesar PDFs" para comenzar</div>
+    `;
+    processBtn.disabled = false;
+  } else {
+    uploadArea.innerHTML = `
+      <div class="upload-icon">📄</div>
+      <div class="upload-text">Arrastra archivos PDF aquí</div>
+      <div class="upload-subtext">o haz clic para seleccionar (máximo 1000 archivos)</div>
+    `;
+    processBtn.disabled = true;
+  }
+}
+
+// Procesar archivos
+processBtn.addEventListener("click", async () => {
+  if (selectedFiles.length === 0) {
+    alert("Por favor selecciona archivos PDF");
+    return;
+  }
+
+  if (selectedFiles.length > 1000) {
+    alert("Máximo 1000 archivos permitidos");
+    return;
+  }
+
+  // Deshabilitar botón mientras procesa
+  processBtn.disabled = true;
+  processBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Procesando...';
+
+  const formData = new FormData();
+  selectedFiles.forEach((file) => {
+    formData.append("pdfs", file);
+  });
+
+  try {
+    showLoading(`Iniciando procesamiento de ${selectedFiles.length} archivos...`);
+
+    const response = await fetch("/api/process", {
+      method: "POST",
+      body: formData,
+    });
+
+    const result = await response.json();
+
+    if (result.success && result.processing) {
+      // Iniciar polling para ver progreso
+      startPolling(result.totalFiles);
+    } else {
+      throw new Error(result.message || "Error al procesar archivos");
+    }
+  } catch (error) {
+    hideLoading();
+    alert(`Error: ${error.message}`);
+    processBtn.disabled = false;
+    processBtn.innerHTML = '<i class="fas fa-check-double"></i> Procesar PDFs';
+  }
+});
+
+function showLoading(message) {
+  progressInfo.textContent = message;
+  loadingOverlay.style.display = "flex";
+}
+
+function hideLoading() {
+  loadingOverlay.style.display = "none";
+  clearInterval(pollingInterval);
+  pollingInterval = null;
+}
+
+function startPolling(totalFiles) {
+  let lastCount = 0;
+  const startTime = Date.now();
+
+  pollingInterval = setInterval(async () => {
+    try {
+      const response = await fetch("/api/get-files");
+      const data = await response.json();
+
+      if (data.success) {
+        const processedCount = data.files.length;
+        const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+        
+        showLoading(`Procesando: ${processedCount}/${totalFiles} archivos (${elapsed}s)`);
+
+        // Si se completó el procesamiento
+        if (processedCount >= totalFiles) {
+          clearInterval(pollingInterval);
+          pollingInterval = null;
+          hideLoading();
+          showResults(data.files);
+        }
+
+        lastCount = processedCount;
+      }
+    } catch (error) {
+      console.error("Error en polling:", error);
+    }
+  }, 1000); // Verificar cada segundo
+}
+
+function showResults(files) {
+  const successful = files.filter((f) => f.success);
+  const failed = files.filter((f) => !f.success);
+
+  successCount.textContent = successful.length;
+  errorCount.textContent = failed.length;
+
+  // Llenar tabla
+  resultsTable.innerHTML = "";
+
+  files.forEach((file) => {
+    const row = document.createElement("tr");
+    row.innerHTML = `
+      <td>${file.filename}</td>
+      <td>${file.success ? '<span style="color: #28a745;">✓ Exitoso</span>' : '<span style="color: #dc3545;">✗ Error</span>'}</td>
+      <td>${file.processingTime ? (file.processingTime / 1000).toFixed(2) + 's' : '-'}</td>
+      <td>${file.error || '-'}</td>
+    `;
+    resultsTable.appendChild(row);
+  });
+
+  resultsModal.style.display = "flex";
+
+  // Resetear botón y archivos
+  processBtn.disabled = false;
+  processBtn.innerHTML = '<i class="fas fa-check-double"></i> Procesar PDFs';
+  selectedFiles = [];
+  fileInput.value = "";
+  showFileCount();
+}
+
+// Cerrar modal
+closeModalBtn.addEventListener("click", () => {
+  resultsModal.style.display = "none";
+});
+
+// Descargar ZIP
+downloadZipBtn.addEventListener("click", () => {
+  window.location.href = "/api/download-zip";
+});
+
+// Abrir carpeta (solo en Electron)
+if (openFolderBtn) {
+  openFolderBtn.addEventListener("click", async () => {
+    if (window.electron && window.electron.openTestedFolder) {
+      await window.electron.openTestedFolder();
+    } else {
+      alert("Esta función solo está disponible en la aplicación de escritorio");
+    }
+  });
+}
+
+// Inicializar
+showFileCount();
