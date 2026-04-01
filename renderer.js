@@ -393,5 +393,48 @@ if (openFolderBtn) {
   });
 }
 
+// Ver contratos testados actuales
+const viewContractsBtn = document.getElementById("viewContractsBtn");
+if (viewContractsBtn) {
+  viewContractsBtn.addEventListener("click", async () => {
+    try {
+      const response = await fetch("/api/get-files");
+      const data = await response.json();
+      if (data.success) {
+        if (data.files.length === 0) {
+          alert("No hay contratos testados en la carpeta.");
+        } else {
+          showResults(data.files);
+        }
+      } else {
+        alert("No se pudo obtener la lista de archivos.");
+      }
+    } catch (error) {
+      alert("Error al consultar los archivos.");
+    }
+  });
+}
+
+// Limpiar archivos desde botón principal
+const clearMainBtn = document.getElementById("clearMainBtn");
+if (clearMainBtn) {
+  clearMainBtn.addEventListener("click", async () => {
+    if (confirm("¿Estás seguro de limpiar todos los archivos procesados?")) {
+      try {
+        const response = await fetch("/api/clear-files", { method: "POST" });
+        const result = await response.json();
+        if (result.success) {
+          alert("Archivos limpiados correctamente.");
+          resultsModal.style.display = "none";
+        } else {
+          alert("Error al limpiar los archivos.");
+        }
+      } catch (error) {
+        alert("No se pudo limpiar. Verifica la conexión.");
+      }
+    }
+  });
+}
+
 // Inicializar
 showFileCount();

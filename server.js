@@ -251,10 +251,500 @@ async function detectarYTestarRFCEnImagen(pdfBytes, pageIndex = 1) {
   }
 }
 
+// Función para detectar y censurar "EL PRESTADOR DE SERVICIOS" en página 6 usando OCR
+// Coloca un rectángulo blanco de 7cm x 10cm debajo del texto detectado
+async function detectarYCensurarPrestadorPagina6(pdfBytes, pdfDoc) {
+  let tempPdfPath = null;
+  let imgPath = null;
+  let tsvPath = null;
+
+  const pageIndex = 5; // Página 6 del contrato (0-based)
+  const currentPages = pdfDoc.getPages();
+  if (currentPages.length <= pageIndex) {
+    console.log("⚠ El PDF no tiene página 6, omitiendo censura de PRESTADOR");
+    return;
+  }
+
+  const targetPage = currentPages[pageIndex];
+  const { width: pdfW, height: pdfH } = targetPage.getSize();
+
+  try {
+    tempPdfPath = path.join(
+      __dirname,
+      "temp_uploads",
+      `temp_prestador_p6_${Date.now()}_${Math.random()}.pdf`
+    );
+    fs.writeFileSync(tempPdfPath, pdfBytes);
+
+    const opts = {
+      format: "png",
+      out_dir: path.join(__dirname, "temp_uploads"),
+      out_prefix: `ocr_prestador_p6_${Date.now()}_${Math.random()}`,
+      page: pageIndex + 1,
+      scale: 2048,
+    };
+
+    await poppler.convert(tempPdfPath, opts);
+
+    const outputName = `${opts.out_prefix}-${opts.page}.png`;
+    imgPath = path.join(opts.out_dir, outputName);
+
+    if (!fs.existsSync(imgPath)) {
+      console.log("⚠ No se pudo generar imagen para detectar PRESTADOR en página 6");
+      return;
+    }
+
+    const { execSync } = require("child_process");
+    tsvPath = imgPath.replace(".png", ".tsv");
+    execSync(
+      `tesseract "${imgPath}" "${tsvPath.replace(".tsv", "")}" -l spa --oem 1 --psm 3 tsv`,
+      { encoding: "utf8" }
+    );
+    const tsv = fs.readFileSync(tsvPath, "utf8");
+
+    const image = await loadImage(imgPath);
+    const imgW = image.width;
+    const imgH = image.height;
+
+    // Factores de conversión píxeles de imagen → puntos PDF
+    const scX = pdfW / imgW;
+    const scY = pdfH / imgH;
+
+    // Parsear todas las palabras del TSV
+    const tsvLines = tsv.split("\n");
+    const words = [];
+    for (let i = 1; i < tsvLines.length; i++) {
+      const cols = tsvLines[i].split("\t");
+      if (cols.length < 12) continue;
+      const wordText = cols[11]?.trim() || "";
+      const left = parseInt(cols[6]);
+      const top = parseInt(cols[7]);
+      const w = parseInt(cols[8]);
+      const h = parseInt(cols[9]);
+      if (!wordText || isNaN(left) || isNaN(top) || isNaN(w) || isNaN(h)) continue;
+      words.push({ text: wordText, left, top, w, h, right: left + w, bottom: top + h });
+    }
+
+    // Buscar la frase "EL PRESTADOR DE SERVICIOS" (completa o parcial)
+    let prestadorAnchor = null;
+    let anchorLine = null;
+    
+    for (let i = 0; i < words.length; i++) {
+      const word = words[i];
+      if (word.text.toUpperCase().includes("PRESTADOR")) {
+        // Verificar si está en la parte superior/media de la página (evitar pie de página)
+        if (word.top < imgH * 0.75) {
+          prestadorAnchor = word;
+          anchorLine = word.top;
+          break;
+        }
+      }
+    }
+
+    if (!prestadorAnchor) {
+      console.log("⚠ No se encontró 'PRESTADOR' en página 6, omitiendo censura");
+      return;
+    }
+
+    // Encontrar los extremos de la frase completa ("EL PRESTADOR DE SERVICIOS")
+    const LABEL_WORDS = new Set(["PRESTADOR", "DE", "SERVICIOS", "SERVICIO", "EL", "LOS", "DEL", "LA"]);
+    const lineH = prestadorAnchor.h || 20;
+    const lineThreshold = lineH * 1.2;
+    
+    let fraseMinX = prestadorAnchor.left;
+    let fraseMaxX = prestadorAnchor.right;
+    let fraseMinY = prestadorAnchor.top;
+    let fraseMaxY = prestadorAnchor.bottom;
+
+    // Buscar todas las palabras que conforman la frase
+    for (const word of words) {
+      if (Math.abs(word.top - anchorLine) > lineThreshold) continue;
+      const wordUp = word.text.toUpperCase().replace(/[^A-ZÁÉÍÓÚÑ]/g, "");
+      if (LABEL_WORDS.has(wordUp) || word.text.includes(":")) {
+        fraseMinX = Math.min(fraseMinX, word.left);
+        fraseMaxX = Math.max(fraseMaxX, word.right);
+        fraseMinY = Math.min(fraseMinY, word.top);
+        fraseMaxY = Math.max(fraseMaxY, word.bottom);
+      }
+    }
+
+    // Crear rectángulo blanco DEBAJO de la frase
+    // Dimensiones: 7cm de alto × 10cm de ancho
+    // Conversión: 1cm = 283.465/10 = 28.3465 puntos
+    const cmToPoints = 28.3465;
+    const rectHeight = 7 * cmToPoints;  // 7 cm = ~198.4 puntos
+    const rectWidth = 10 * cmToPoints;  // 10 cm = ~283.4 puntos
+
+    // Posición: centrado horizontalmente respecto a la frase, justo debajo
+    const fraseImgCenterX = (fraseMinX + fraseMaxX) / 2;
+    const rectImgX = Math.max(0, fraseImgCenterX - rectWidth / (2 * scX));
+    const rectImgY = fraseMaxY + 10; // 10 píxeles de separación
+    const rectImgW = rectWidth / scX;
+    const rectImgH = rectHeight / scY;
+
+    // Convertir a coordenadas PDF
+    const pdfRectX = rectImgX * scX;
+    const pdfRectY = pdfH - (rectImgY + rectImgH) * scY;
+    const pdfRectW = rectImgW * scX;
+    const pdfRectH = rectImgH * scY;
+
+    targetPage.drawRectangle({
+      x: Math.max(0, pdfRectX),
+      y: Math.max(0, pdfRectY),
+      width: Math.min(pdfW - pdfRectX, pdfRectW),
+      height: pdfRectH,
+      color: rgb(1, 1, 1), // Blanco
+    });
+
+    console.log(
+      `✅ Rectángulo de firma censura (7cm×10cm) colocado debajo de: "${words.slice(words.indexOf(prestadorAnchor), words.indexOf(prestadorAnchor) + 5).map((w) => w.text).join(" ")}"`
+    );
+  } catch (error) {
+    console.log(`⚠ OCR PRESTADOR Página 6: ${error.message}`);
+  } finally {
+    if (tempPdfPath && fs.existsSync(tempPdfPath)) fs.unlinkSync(tempPdfPath);
+    if (imgPath && fs.existsSync(imgPath)) fs.unlinkSync(imgPath);
+    if (tsvPath && fs.existsSync(tsvPath)) fs.unlinkSync(tsvPath);
+  }
+}
+
+// Función para censurar firmas/rúbricas laterales en todas las páginas
+async function censurarFirmasLaterales(pdfDoc, font) {
+  const currentPages = pdfDoc.getPages();
+  for (const page of currentPages) {
+    const { width, height } = page.getSize();
+    // Ancho de la franja lateral a censurar (~7.5% del ancho de página)
+    // Ajustar este valor si las rúbricas están más adentro o más afuera
+    const lateralW = width * 0.075;
+
+    // Franjas blancas (color blanco) para cubrir rúbricas laterales
+    page.drawRectangle({ x: 0, y: 0, width: lateralW, height, color: rgb(1, 1, 1) });
+    page.drawRectangle({ x: width - lateralW, y: 0, width: lateralW, height, color: rgb(1, 1, 1) });
+  }
+}
+
+// Función para detectar y censurar firma autógrafa en la última página usando OCR
+async function detectarYCensurarFirmaUltimaPagina(pdfBytes, pdfDoc, font) {
+  let tempPdfPath = null;
+  let imgPath = null;
+  let tsvPath = null;
+
+  const currentPages = pdfDoc.getPages();
+  const lastPageIndex = currentPages.length - 1;
+  const lastPage = currentPages[lastPageIndex];
+  const { width: pdfW, height: pdfH } = lastPage.getSize();
+
+  try {
+    tempPdfPath = path.join(
+      __dirname,
+      "temp_uploads",
+      `temp_firma_${Date.now()}_${Math.random()}.pdf`
+    );
+    fs.writeFileSync(tempPdfPath, pdfBytes);
+
+    const opts = {
+      format: "png",
+      out_dir: path.join(__dirname, "temp_uploads"),
+      out_prefix: `ocr_firma_${Date.now()}_${Math.random()}`,
+      page: lastPageIndex + 1,
+      scale: 2048,
+    };
+
+    await poppler.convert(tempPdfPath, opts);
+
+    const outputName = `${opts.out_prefix}-${opts.page}.png`;
+    imgPath = path.join(opts.out_dir, outputName);
+
+    if (!fs.existsSync(imgPath)) {
+      aplicarFallbackFirmaUltimaPagina(lastPage, pdfW, pdfH, font);
+      return;
+    }
+
+    const { execSync } = require("child_process");
+    tsvPath = imgPath.replace(".png", ".tsv");
+    execSync(
+      `tesseract "${imgPath}" "${tsvPath.replace(".tsv", "")}" -l spa --oem 1 --psm 3 tsv`,
+      { encoding: "utf8" }
+    );
+    const tsv = fs.readFileSync(tsvPath, "utf8");
+
+    const image = await loadImage(imgPath);
+    const imgW = image.width;
+    const imgH = image.height;
+
+    // Factores de conversión píxeles de imagen → puntos PDF
+    const scX = pdfW / imgW;
+    const scY = pdfH / imgH;
+
+    const lines = tsv.split("\n");
+
+    // Buscar "PRESTADOR" como texto ancla de la zona de firma
+    let anchorImgY = null;
+    let anchorImgX = null;
+    let anchorImgH = 40;
+    let anchorImgW = 400;
+
+    for (let i = 1; i < lines.length; i++) {
+      const cols = lines[i].split("\t");
+      if (cols.length < 12) continue;
+      const text = cols[11]?.trim().toUpperCase() || "";
+      const left = parseInt(cols[6]);
+      const top = parseInt(cols[7]);
+      const w = parseInt(cols[8]);
+      const h = parseInt(cols[9]);
+
+      // Filtrar por posición: el encabezado "EL PRESTADOR DE SERVICIOS" está en la
+      // mitad derecha de la página y en el 70% superior. El aviso de privacidad
+      // al pie contiene "Prestadoras de Servicios" pero está en la parte inferior
+      // e izquierda — esos matches se ignoran.
+      const enMitadDerecha = !isNaN(left) && left > imgW * 0.30;
+      const enMitadSuperior = !isNaN(top) && top < imgH * 0.70;
+      if ((text.includes("PRESTADOR") || text.includes("SERVICIOS")) && enMitadDerecha && enMitadSuperior) {
+        anchorImgY = top;
+        anchorImgX = left;
+        if (!isNaN(h)) anchorImgH = h;
+        if (!isNaN(w)) anchorImgW = w;
+        break;
+      }
+    }
+
+    if (anchorImgY !== null) {
+      // La firma está DEBAJO del ancla "EL PRESTADOR DE SERVICIOS"
+      // Layout: [ancla] → [firma autógrafa] → [nombre del empleado]
+      // Cubrimos desde el ancla hasta el final del nombre con un solo rectángulo blanco
+
+      // Buscar hasta dónde llega el nombre del empleado (texto debajo del ancla, max 450px)
+      let bloqueImgYFin = anchorImgY + anchorImgH + 300; // fallback
+      for (let i = 1; i < lines.length; i++) {
+        const cols = lines[i].split("\t");
+        if (cols.length < 12) continue;
+        const rowTop = parseInt(cols[7]);
+        const rowH = parseInt(cols[9]);
+        const rowText = cols[11]?.trim() || "";
+        if (!isNaN(rowTop) && rowTop > anchorImgY + anchorImgH && rowTop < anchorImgY + anchorImgH + 450 && rowText.length > 1) {
+          bloqueImgYFin = Math.max(bloqueImgYFin, rowTop + (isNaN(rowH) ? 30 : rowH));
+        }
+      }
+
+      // Rectángulo que cubre: ancla + firma + nombre
+      const bloqueImgY = Math.max(0, anchorImgY - 10);
+      const bloqueImgH = bloqueImgYFin - bloqueImgY + 30;
+      const bloqueImgX = Math.max(0, anchorImgX - 120);
+      const bloqueImgW = Math.min(imgW - bloqueImgX, anchorImgW + 500);
+
+      const pdfBloqueX = bloqueImgX * scX;
+      const pdfBloqueY = pdfH - (bloqueImgY + bloqueImgH) * scY;
+      const pdfBloqueW = bloqueImgW * scX;
+      const pdfBloqueH = bloqueImgH * scY;
+
+      lastPage.drawRectangle({
+        x: Math.max(0, pdfBloqueX),
+        y: Math.max(0, pdfBloqueY),
+        width: Math.min(pdfW - pdfBloqueX, pdfBloqueW),
+        height: pdfBloqueH,
+        color: rgb(1, 1, 1),
+      });
+    } else {
+      console.log("⚠ No se encontró 'PRESTADOR' en última página, usando fallback");
+      aplicarFallbackFirmaUltimaPagina(lastPage, pdfW, pdfH, font);
+    }
+  } catch (error) {
+    console.log(`⚠ OCR Firma última página: ${error.message}`);
+    aplicarFallbackFirmaUltimaPagina(lastPage, pdfW, pdfH, font);
+  } finally {
+    if (tempPdfPath && fs.existsSync(tempPdfPath)) fs.unlinkSync(tempPdfPath);
+    if (imgPath && fs.existsSync(imgPath)) fs.unlinkSync(imgPath);
+    if (tsvPath && fs.existsSync(tsvPath)) fs.unlinkSync(tsvPath);
+  }
+}
+
+// Fallback: cubre la zona central-derecha donde aparece la firma del prestador de servicios
+// La sección "EL PRESTADOR DE SERVICIOS" + firma autógrafa + nombre ocupa aprox 38–62% desde abajo
+function aplicarFallbackFirmaUltimaPagina(page, pdfW, pdfH, font) {
+  const x = pdfW * 0.40;
+  const y = pdfH * 0.36;
+  const w = pdfW * 0.58;
+  const h = pdfH * 0.26;
+
+  // Rectángulo blanco (censura sin OCR)
+  page.drawRectangle({ x, y, width: w, height: h, color: rgb(1, 1, 1) });
+}
+
+// Detectar y censurar el nombre del prestador de servicios en página 2 usando OCR.
+// Busca el texto ancla "PRESTADOR" y luego censura el nombre que aparece justo
+// después (mismo renglón) o en el renglón inmediatamente inferior.
+async function detectarYCensurarNombrePrestador(pdfBytes, pdfDoc) {
+  let tempPdfPath = null;
+  let imgPath = null;
+  let tsvPath = null;
+
+  const pageIndex = 1; // Página 2 del contrato (0-based)
+  const currentPages = pdfDoc.getPages();
+  if (currentPages.length <= pageIndex) return;
+
+  const targetPage = currentPages[pageIndex];
+  const { width: pdfW, height: pdfH } = targetPage.getSize();
+
+  try {
+    tempPdfPath = path.join(
+      __dirname,
+      "temp_uploads",
+      `temp_nombre_${Date.now()}_${Math.random()}.pdf`
+    );
+    fs.writeFileSync(tempPdfPath, pdfBytes);
+
+    const opts = {
+      format: "png",
+      out_dir: path.join(__dirname, "temp_uploads"),
+      out_prefix: `ocr_nombre_${Date.now()}_${Math.random()}`,
+      page: pageIndex + 1,
+      scale: 2048,
+    };
+
+    await poppler.convert(tempPdfPath, opts);
+
+    const outputName = `${opts.out_prefix}-${opts.page}.png`;
+    imgPath = path.join(opts.out_dir, outputName);
+
+    if (!fs.existsSync(imgPath)) {
+      console.log("⚠ No se pudo generar imagen para detectar nombre del prestador");
+      return;
+    }
+
+    const { execSync } = require("child_process");
+    tsvPath = imgPath.replace(".png", ".tsv");
+    execSync(
+      `tesseract "${imgPath}" "${tsvPath.replace(".tsv", "")}" -l spa --oem 1 --psm 3 tsv`,
+      { encoding: "utf8" }
+    );
+    const tsv = fs.readFileSync(tsvPath, "utf8");
+
+    const image = await loadImage(imgPath);
+    const imgW = image.width;
+    const imgH = image.height;
+
+    // Factores de conversión píxeles de imagen → puntos PDF
+    const scX = pdfW / imgW;
+    const scY = pdfH / imgH;
+
+    // Parsear todas las palabras del TSV
+    const tsvLines = tsv.split("\n");
+    const words = [];
+    for (let i = 1; i < tsvLines.length; i++) {
+      const cols = tsvLines[i].split("\t");
+      if (cols.length < 12) continue;
+      const wordText = cols[11]?.trim() || "";
+      const left = parseInt(cols[6]);
+      const top = parseInt(cols[7]);
+      const w = parseInt(cols[8]);
+      const h = parseInt(cols[9]);
+      if (!wordText || isNaN(left) || isNaN(top) || isNaN(w) || isNaN(h)) continue;
+      words.push({ text: wordText, left, top, w, h, right: left + w, bottom: top + h });
+    }
+
+    // Buscar la palabra ancla "PRESTADOR" en la parte superior de la página
+    // (se excluye la zona inferior > 75% para no colisionar con el bloque de firma)
+    let anchorWord = null;
+    for (const word of words) {
+      if (word.text.toUpperCase().includes("PRESTADOR") && word.top < imgH * 0.75) {
+        anchorWord = word;
+        break;
+      }
+    }
+
+    if (!anchorWord) {
+      console.log("⚠ No se encontró 'PRESTADOR' en página 2, omitiendo censura de nombre");
+      return;
+    }
+
+    const anchorLine = anchorWord.top;
+    const lineH = anchorWord.h || 30;
+    const lineThreshold = lineH * 1.2;
+
+    // Determinar el extremo derecho de la etiqueta completa
+    // ("PRESTADOR DE SERVICIOS:", "EL PRESTADOR DE SERVICIOS", etc.)
+    const LABEL_WORDS = new Set(["PRESTADOR", "DE", "SERVICIOS", "SERVICIO", "EL", "LOS", "DEL", "LA"]);
+    let labelEndX = anchorWord.right;
+
+    for (const word of words) {
+      if (Math.abs(word.top - anchorLine) > lineThreshold) continue;
+      if (word.left < anchorWord.left) continue;
+      const wordUp = word.text.toUpperCase().replace(/[^A-ZÁÉÍÓÚÑ]/g, "");
+      if (LABEL_WORDS.has(wordUp) || word.text.includes(":")) {
+        labelEndX = Math.max(labelEndX, word.right);
+      }
+    }
+
+    // Recopilar el nombre: palabras en el mismo renglón DESPUÉS del final de la etiqueta
+    let nameWords = words.filter(
+      (w) =>
+        Math.abs(w.top - anchorLine) <= lineThreshold &&
+        w.left > labelEndX + 5
+    );
+
+    // Si no hay texto en el mismo renglón, buscar en el renglón inmediatamente inferior
+    if (nameWords.length === 0) {
+      const nextLineYMin = anchorLine + lineH * 0.5;
+      const nextLineYMax = anchorLine + lineH * 3.5;
+      nameWords = words.filter(
+        (w) =>
+          w.top > nextLineYMin &&
+          w.top < nextLineYMax &&
+          w.left >= anchorWord.left - 60
+      );
+    }
+
+    if (nameWords.length === 0) {
+      console.log("⚠ No se encontró nombre después de 'PRESTADOR' en página 2");
+      return;
+    }
+
+    // Calcular bounding box del nombre
+    let minX = Infinity, minY = Infinity, maxX = 0, maxY = 0;
+    for (const w of nameWords) {
+      if (w.left < minX) minX = w.left;
+      if (w.top < minY) minY = w.top;
+      if (w.right > maxX) maxX = w.right;
+      if (w.bottom > maxY) maxY = w.bottom;
+    }
+
+    const pad = 8;
+    const pdfRectX = Math.max(0, (minX - pad) * scX);
+    const pdfRectY = Math.max(0, pdfH - (maxY + pad) * scY);
+    const pdfRectW = Math.min(pdfW - pdfRectX, (maxX - minX + pad * 2) * scX);
+    const pdfRectH = (maxY - minY + pad * 2) * scY;
+
+    targetPage.drawRectangle({
+      x: pdfRectX,
+      y: pdfRectY,
+      width: pdfRectW,
+      height: pdfRectH,
+      color: rgb(0, 0, 0),
+    });
+
+    console.log(
+      `✅ Nombre del prestador censurado: "${nameWords.map((w) => w.text).join(" ")}"`
+    );
+  } catch (error) {
+    console.log(`⚠ OCR Nombre Prestador: ${error.message}`);
+  } finally {
+    if (tempPdfPath && fs.existsSync(tempPdfPath)) fs.unlinkSync(tempPdfPath);
+    if (imgPath && fs.existsSync(imgPath)) fs.unlinkSync(imgPath);
+    if (tsvPath && fs.existsSync(tsvPath)) fs.unlinkSync(tsvPath);
+  }
+}
+
 // Función para censurar PDF
 async function censorPdf(inputBytes, outputPath, filename) {
   const pdfDoc = await PDFDocument.load(inputBytes);
   const pages = pdfDoc.getPages();
+
+  // Cargar fuente Montserrat una sola vez para reutilizar en todo el procesamiento
+  pdfDoc.registerFontkit(fontkit);
+  const montserratBytes = fs.readFileSync(
+    path.join(__dirname, "fonts", "Montserrat-Regular.ttf")
+  );
+  const montserratFont = await pdfDoc.embedFont(montserratBytes);
 
   // Detectar RFC en página 2
   const rfcDetectado = await detectarYTestarRFCEnImagen(inputBytes, 1);
@@ -280,131 +770,35 @@ async function censorPdf(inputBytes, outputPath, filename) {
     fs.unlinkSync(rfcDetectado.testedImagePath);
   }
 
-  // Redimensionar página 2 al 71% y agregar leyenda
-  if (pages.length >= 2) {
-    const page2 = pages[1];
-    const { width, height } = page2.getSize();
+  // ─────────────────────────────────────────────────────────────────────────
+  // REDIMENSIONADO DE PÁGINA 2 (índice 1) AL 71%
+  // ─────────────────────────────────────────────────────────────────────────
+  // Se comprime el contenido de la página 2 al 71% de su tamaño original
+  // para liberar espacio en la parte inferior donde se inserta la leyenda legal
+  // de versión pública, conforme al Art. 65 fracción X de la Ley de Transparencia.
+  //
+  // Flujo:
+  //   1. scaleContent(0.71, 0.71) — escala texto e imágenes al 71%
+  //   2. translateContent(offsetX, offsetY) — centra horizontalmente y
+  //      desplaza hacia arriba dejando 15pt de margen superior
+  //   3. Se re-inserta la página modificada (removePage + insertPage)
+  //      para que los cambios de escala queden persistidos en el documento
+  //   4. Se dibuja la leyenda legal en el espacio liberado al pie de página
+  // ─────────────────────────────────────────────────────────────────────────
+  // Página 2 sin modificar — solo se aplican las barras laterales (censurarFirmasLaterales)
+  // if (pages.length >= 2) { ... }
 
-    const escalaContrato = 0.71;
-    page2.scaleContent(escalaContrato, escalaContrato);
+  // Censurar firmas/rúbricas laterales en todas las páginas
+  await censurarFirmasLaterales(pdfDoc, montserratFont);
 
-    const scaledWidth = width * escalaContrato;
-    const scaledHeight = height * escalaContrato;
-    const offsetX = (width - scaledWidth) / 2;
-    const offsetY = height - scaledHeight - 15;
+  // Censurar nombre del prestador en página 2 (OCR: busca "PRESTADOR" y censura el nombre que sigue)
+  await detectarYCensurarNombrePrestador(inputBytes, pdfDoc);
 
-    page2.translateContent(offsetX, offsetY);
+  // Detectar y censurar "EL PRESTADOR DE SERVICIOS" en página 6 (coloca rectángulo blanco 7cm×10cm debajo)
+  await detectarYCensurarPrestadorPagina6(inputBytes, pdfDoc);
 
-    const [copiedPage] = await pdfDoc.copyPages(pdfDoc, [1]);
-    pdfDoc.removePage(1);
-    pdfDoc.insertPage(1, copiedPage);
-
-    const newPage2 = pdfDoc.getPages()[1];
-
-    const leyendaTexto = [
-      "VERSIÓN PÚBLICA DERIVADA DE LA OBLIGACIÓN ESTABLECIDA POR EL ARTÍCULO 65, FRACCIÓN X, MISMA QUE DICE A LA LETRA «…Las contrataciones de servicios profesionales por honorarios…»:",
-      "CUYO DATO TESTADO ES REGISTRO FEDERAL DE CONTRIBUYENTES.",
-      " 1.- RFC (una línea).",
-      "",
-      "De conformidad a: Ley General de Transparencia y Acceso a la Información Pública vigente, Artículo 103 La clasificación de la información se llevará a cabo en el momento en que:",
-      "I. Se reciba una solicitud de acceso a la información; II. Se determine mediante resolución de autoridad competente, o III. Se generen versiones públicas para dar cumplimiento a las obligaciones",
-      "de transparencia previstas en esta Ley. Artículo 115. Se considera información confidencial la que contiene datos personales concernientes a una persona física identificada o identificable.",
-      "La información confidencial no estará sujeta a temporalidad alguna y sólo podrán tener acceso a ella los titulares de la misma, sus representantes y las personas servidoras públicas facultadas",
-      "para ello. Asimismo, será información confidencial aquella que presenten las personas particulares a los sujetos obligados, siempre que tengan el derecho a ello, de conformidad con lo dispuesto",
-      "por las leyes o los tratados internacionales. Ley General de Protección de Datos Personales en Posesión de Sujetos Obligados vigente, Artículo 3 Para los efectos de la presente Ley se entenderá",
-      "por: fracción X Datos personales sensibles: Aquellos que se refieran a la esfera más íntima de su titular, o cuya utilización indebida pueda dar origen a discriminación o conlleve un riesgo grave",
-      "para ésta. De manera enunciativa más no limitativa, se consideran sensibles los datos personales que puedan revelar aspectos como origen racial o étnico, estado de salud presente o futuro,",
-      "información genética, creencias religiosas, filosóficas y morales, opiniones políticas y preferencia sexual. Ley de Transparencia y Acceso a la Información Pública con Sentido Social y Buen",
-      "Gobierno del Estado de Oaxaca vigente, Artículo 3. Para los efectos de la presente Ley se entiende por: fracción VIII. Clasificación de la información: Acto por el cuál se determina que la información",
-      "que posee el sujeto obligado es pública, reservada o confidencial, de acuerdo con lo establecido en los ordenamientos legales de la materia; fracción XXI. Información confidencial: La información en",
-      "posesión de los sujetos obligados, que refiera a la vida privada y/o datos personales, por lo que no puede ser difundida, publicada o dada a conocer, excepto en aquellos casos en que así lo contemple",
-      "la presente Ley y la Ley de la materia; Artículo 60, párrafo III. Aquella información particular de la referida en este Título que se ubique en alguno de los supuestos de clasificación señalados en los",
-      "artículos 129 y 134 de la presente Ley, no será objeto de la publicación a que se refiere este mismo artículo, salvo que pueda ser elaborada una versión pública. En todo caso se aplicará la prueba de",
-      "daño a que se refiere el artículo 107 de la Ley General y el correspondiente de la presente Ley; Artículo 70. Los sujetos obligados del Estado publicarán las obligaciones de transparencia comunes a",
-      "las que se refiere el artículo 65 de la Ley General, debiendo ponerla a disposición del público y mantenerla actualizada en los respectivos medios electrónicos que corresponda al ámbito de su",
-      "competencia, sin que medie solicitud de información o requerimiento alguno; Artículo 119. La clasificación de la información se llevará a cabo en el momento en que: Fracción III. Se generen versiones",
-      "públicas para dar cumplimiento a las obligaciones de transparencia previstas en la Ley General y en esta Ley. Artículo 134. Se considera información confidencial la que se contiene datos personales",
-      "concernientes a una persona física identificada o identificable.",
-    ];
-
-    const montserratBytes = fs.readFileSync(
-      path.join(__dirname, "fonts", "Montserrat-Regular.ttf")
-    );
-    pdfDoc.registerFontkit(fontkit);
-    const montserratFont = await pdfDoc.embedFont(montserratBytes);
-
-    const fontSize = 5.5;
-    const lineHeight = 6.5;
-    const margin = 15;
-    const textWidth = width - margin * 2;
-    const leyendaHeight = leyendaTexto.length * lineHeight + margin * 2;
-    const leyendaY = 10;
-
-    newPage2.drawRectangle({
-      x: margin - 5,
-      y: leyendaY,
-      width: textWidth + 10,
-      height: leyendaHeight,
-      borderColor: rgb(0, 0, 0),
-      borderWidth: 0.5,
-    });
-
-    function drawJustifiedText(text, x, y, maxWidth, font, size) {
-      if (!text || text.trim() === "") return;
-
-      const words = text.trim().split(/\s+/);
-      if (words.length === 1) {
-        newPage2.drawText(text, { x, y, size, font, color: rgb(0, 0, 0) });
-        return;
-      }
-
-      let totalWordWidth = 0;
-      words.forEach((word) => {
-        totalWordWidth += font.widthOfTextAtSize(word, size);
-      });
-
-      const totalSpaceWidth = maxWidth - totalWordWidth;
-      const spaceWidth = totalSpaceWidth / (words.length - 1);
-
-      let currentX = x;
-      words.forEach((word) => {
-        newPage2.drawText(word, {
-          x: currentX,
-          y,
-          size,
-          font,
-          color: rgb(0, 0, 0),
-        });
-        const wordWidth = font.widthOfTextAtSize(word, size);
-        currentX += wordWidth + spaceWidth;
-      });
-    }
-
-    leyendaTexto.forEach((linea, index) => {
-      const yPos =
-        leyendaY + leyendaHeight - (margin + index * lineHeight) - fontSize;
-      const noJustificar = [1, 2, 3, leyendaTexto.length - 1];
-
-      if (noJustificar.includes(index) || !linea.trim()) {
-        newPage2.drawText(linea, {
-          x: margin,
-          y: yPos,
-          size: fontSize,
-          font: montserratFont,
-          color: rgb(0, 0, 0),
-        });
-      } else {
-        drawJustifiedText(
-          linea,
-          margin,
-          yPos,
-          textWidth,
-          montserratFont,
-          fontSize
-        );
-      }
-    });
-  }
+  // Censurar firma autógrafa en la última página (ancla: "PRESTADOR DE SERVICIOS")
+  await detectarYCensurarFirmaUltimaPagina(inputBytes, pdfDoc, montserratFont);
 
   const pdfBytes = await pdfDoc.save();
   fs.writeFileSync(outputPath, pdfBytes);
