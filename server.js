@@ -100,23 +100,73 @@ async function detectarYTestarRFCEnImagen(pdfBytes, pageIndex = 1) {
       );
       const tsv = fs.readFileSync(tsvPath, "utf8");
 
-      const regex = /n[uú]mero\s*:?\s*([A-ZÑ&]{4}\d{6}[A-Z0-9]{3})/i;
-      const match = text.match(regex);
+      const cleanedOCRText = text.toUpperCase();
+      const lines = tsv.split("\n");
+      const words = [];
+      for (let i = 1; i < lines.length; i++) {
+        const cols = lines[i].split("\t");
+        if (cols.length < 12) continue;
+        const wordText = cols[11]?.trim() || "";
+        const left = parseInt(cols[6]);
+        const top = parseInt(cols[7]);
+        const w = parseInt(cols[8]);
+        const h = parseInt(cols[9]);
+        if (!wordText || isNaN(left) || isNaN(top) || isNaN(w) || isNaN(h)) continue;
+        words.push({
+          text: wordText,
+          left,
+          top,
+          w,
+          h,
+          right: left + w,
+          bottom: top + h,
+        });
+      }
 
-      if (match && match[1]) {
-        const rfc = match[1].replace(/[^A-Z0-9Ñ&]/g, "").toUpperCase();
-        if (rfc.length === 13) {
-          const image = await loadImage(imgPath);
-          const canvas = createCanvas(image.width, image.height);
-          const ctx = canvas.getContext("2d");
-          ctx.drawImage(image, 0, 0);
+      let rfc = null;
+      const rfcCandidates = [];
 
-          const lines = tsv.split("\n");
-          let rfcFound = false;
-          let minX = Infinity,
-            minY = Infinity,
-            maxX = 0,
-            maxY = 0;
+      // Intento directo de patrones RFC comunes
+      const rfcPatterns = [
+        /(?:RFC|R\.F\.C\.|N[UÚ]MERO(?:\s+DE)?\s+RFC|N[UÚ]MERO\s*:\s*RFC)\s*[:\-]?\s*([A-ZÑ&]{3,4}\d{6}[A-Z0-9]{2,3})/i,
+        /(?:N[UÚ]MERO\s*:\s*)([A-ZÑ&]{3,4}\d{6}[A-Z0-9]{2,3})/i,
+        /([A-ZÑ&]{3,4}\d{6}[A-Z0-9]{2,3})/i,
+      ];
+
+      for (const pat of rfcPatterns) {
+        const match = cleanedOCRText.match(pat);
+        if (match && match[1]) {
+          const candidate = match[1].replace(/[^A-Z0-9Ñ&]/g, "").toUpperCase();
+          if (candidate.length === 12 || candidate.length === 13) {
+            rfc = candidate;
+            break;
+          }
+        }
+      }
+
+      // Extraer candidatos RFC de las palabras del TSV
+      const candidateRegexp = /^[A-ZÑ&]{3,4}\d{6}[A-Z0-9]{2,3}$/;
+      for (const w of words) {
+        const cleaned = w.text.toUpperCase().replace(/[^A-Z0-9Ñ&]/g, "");
+        if (candidateRegexp.test(cleaned)) {
+          rfcCandidates.push({ value: cleaned, word: w });
+        }
+      }
+
+      if (!rfc && rfcCandidates.length > 0) {
+        rfc = rfcCandidates[0].value;
+      }
+
+      const image = await loadImage(imgPath);
+      const canvas = createCanvas(image.width, image.height);
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(image, 0, 0);
+
+      let rfcFound = false;
+      let minX = Infinity,
+        minY = Infinity,
+        maxX = 0,
+        maxY = 0;
 
           // Buscar RFC completo
           for (let i = 1; i < lines.length; i++) {
@@ -157,7 +207,7 @@ async function detectarYTestarRFCEnImagen(pdfBytes, pageIndex = 1) {
 
               if (!text || isNaN(left) || isNaN(top)) continue;
 
-              if (text.length >= 8 && rfc.includes(text)) {
+              if (rfc && text.length >= 8 && rfc.includes(text)) {
                 minX = Math.min(minX, left);
                 minY = Math.min(minY, top);
                 maxX = Math.max(maxX, left + w);
@@ -227,6 +277,12 @@ async function detectarYTestarRFCEnImagen(pdfBytes, pageIndex = 1) {
           ctx.textAlign = "center";
           ctx.fillText("1. RFC", x + width / 2, y + height / 2 + 18);
 
+          if (rfc) {
+            console.log(`✅ RFC detectado y testado: ${rfc}`);
+          } else {
+            console.log('⚠ No se detectó RFC (fallback), se dibujó región de prueba');
+          }
+
           const testedImgPath = path.join(
             opts.out_dir,
             `tested_${Date.now()}_${Math.random()}.png`
@@ -238,8 +294,6 @@ async function detectarYTestarRFCEnImagen(pdfBytes, pageIndex = 1) {
           if (fs.existsSync(tsvPath)) fs.unlinkSync(tsvPath);
 
           return { rfc, testedImagePath: testedImgPath };
-        }
-      }
     }
 
     return null;
@@ -251,8 +305,8 @@ async function detectarYTestarRFCEnImagen(pdfBytes, pageIndex = 1) {
   }
 }
 
-// Función para detectar y censurar "EL PRESTADOR DE SERVICIOS" en página 6 usando OCR
-// Coloca un rectángulo blanco de 7cm x 10cm debajo del texto detectado
+// Función para detectar y censurar "EL PRESTADOR DE SERVICIOS" en página 6 usando OCR.
+// Coloca un rectángulo blanco de 7 cm de alto × ancho de la cadena detectada, justo debajo del texto.
 async function detectarYCensurarPrestadorPagina6(pdfBytes, pdfDoc) {
   let tempPdfPath = null;
   let imgPath = null;
@@ -269,28 +323,23 @@ async function detectarYCensurarPrestadorPagina6(pdfBytes, pdfDoc) {
   const { width: pdfW, height: pdfH } = targetPage.getSize();
 
   try {
-    tempPdfPath = path.join(
-      __dirname,
-      "temp_uploads",
-      `temp_prestador_p6_${Date.now()}_${Math.random()}.pdf`
-    );
+    const outPrefix = `ocr_p6_${Date.now()}`;
+    tempPdfPath = path.join(__dirname, "temp_uploads", `${outPrefix}.pdf`);
     fs.writeFileSync(tempPdfPath, pdfBytes);
 
     const opts = {
       format: "png",
       out_dir: path.join(__dirname, "temp_uploads"),
-      out_prefix: `ocr_prestador_p6_${Date.now()}_${Math.random()}`,
+      out_prefix: outPrefix,
       page: pageIndex + 1,
       scale: 2048,
     };
 
     await poppler.convert(tempPdfPath, opts);
-
-    const outputName = `${opts.out_prefix}-${opts.page}.png`;
-    imgPath = path.join(opts.out_dir, outputName);
+    imgPath = path.join(opts.out_dir, `${outPrefix}-${pageIndex + 1}.png`);
 
     if (!fs.existsSync(imgPath)) {
-      console.log("⚠ No se pudo generar imagen para detectar PRESTADOR en página 6");
+      console.log("⚠ No se pudo generar imagen de página 6 para detectar PRESTADOR");
       return;
     }
 
@@ -306,105 +355,85 @@ async function detectarYCensurarPrestadorPagina6(pdfBytes, pdfDoc) {
     const imgW = image.width;
     const imgH = image.height;
 
-    // Factores de conversión píxeles de imagen → puntos PDF
+    // Factores de escala: píxeles de imagen → puntos PDF
     const scX = pdfW / imgW;
     const scY = pdfH / imgH;
 
-    // Parsear todas las palabras del TSV
-    const tsvLines = tsv.split("\n");
+    // Parsear palabras del TSV
     const words = [];
-    for (let i = 1; i < tsvLines.length; i++) {
-      const cols = tsvLines[i].split("\t");
+    for (const line of tsv.split("\n").slice(1)) {
+      const cols = line.split("\t");
       if (cols.length < 12) continue;
-      const wordText = cols[11]?.trim() || "";
+      const text = cols[11]?.trim() || "";
       const left = parseInt(cols[6]);
-      const top = parseInt(cols[7]);
-      const w = parseInt(cols[8]);
-      const h = parseInt(cols[9]);
-      if (!wordText || isNaN(left) || isNaN(top) || isNaN(w) || isNaN(h)) continue;
-      words.push({ text: wordText, left, top, w, h, right: left + w, bottom: top + h });
+      const top  = parseInt(cols[7]);
+      const w    = parseInt(cols[8]);
+      const h    = parseInt(cols[9]);
+      if (!text || isNaN(left) || isNaN(top) || isNaN(w) || isNaN(h) || w <= 0 || h <= 0) continue;
+      words.push({ text, left, top, right: left + w, bottom: top + h, h });
     }
 
-    // Buscar la frase "EL PRESTADOR DE SERVICIOS" (completa o parcial)
-    let prestadorAnchor = null;
-    let anchorLine = null;
-    
-    for (let i = 0; i < words.length; i++) {
-      const word = words[i];
-      if (word.text.toUpperCase().includes("PRESTADOR")) {
-        // Verificar si está en la parte superior/media de la página (evitar pie de página)
-        if (word.top < imgH * 0.75) {
-          prestadorAnchor = word;
-          anchorLine = word.top;
-          break;
-        }
-      }
-    }
+    // Buscar "PRESTADOR" como ancla, excluyendo el pie de página (>75 % de alto)
+    const anchor = words.find(
+      (w) => w.text.toUpperCase().includes("PRESTADOR") && w.top < imgH * 0.75
+    );
 
-    if (!prestadorAnchor) {
+    if (!anchor) {
       console.log("⚠ No se encontró 'PRESTADOR' en página 6, omitiendo censura");
       return;
     }
 
-    // Encontrar los extremos de la frase completa ("EL PRESTADOR DE SERVICIOS")
-    const LABEL_WORDS = new Set(["PRESTADOR", "DE", "SERVICIOS", "SERVICIO", "EL", "LOS", "DEL", "LA"]);
-    const lineH = prestadorAnchor.h || 20;
-    const lineThreshold = lineH * 1.2;
-    
-    let fraseMinX = prestadorAnchor.left;
-    let fraseMaxX = prestadorAnchor.right;
-    let fraseMinY = prestadorAnchor.top;
-    let fraseMaxY = prestadorAnchor.bottom;
+    // Expandir bounding box a toda la frase "EL PRESTADOR DE SERVICIOS"
+    // Solo se consideran palabras en la misma línea (±1.5× altura del ancla)
+    // y que sean parte estricta de la etiqueta (no palabras genéricas que contaminen el ancho).
+    const FRASE_TOKENS = new Set(["PRESTADOR", "DE", "SERVICIOS", "SERVICIO", "EL", "LOS", "DEL"]);
+    const lineThreshold = anchor.h * 1.5;
 
-    // Buscar todas las palabras que conforman la frase
-    for (const word of words) {
-      if (Math.abs(word.top - anchorLine) > lineThreshold) continue;
-      const wordUp = word.text.toUpperCase().replace(/[^A-ZÁÉÍÓÚÑ]/g, "");
-      if (LABEL_WORDS.has(wordUp) || word.text.includes(":")) {
-        fraseMinX = Math.min(fraseMinX, word.left);
-        fraseMaxX = Math.max(fraseMaxX, word.right);
-        fraseMinY = Math.min(fraseMinY, word.top);
-        fraseMaxY = Math.max(fraseMaxY, word.bottom);
+    let minX = anchor.left;
+    let maxX = anchor.right;
+    let minY = anchor.top;
+    let maxY = anchor.bottom;
+
+    for (const w of words) {
+      if (Math.abs(w.top - anchor.top) > lineThreshold) continue;
+      const token = w.text.toUpperCase().replace(/[^A-ZÁÉÍÓÚÑ]/g, "");
+      if (FRASE_TOKENS.has(token)) {
+        minX = Math.min(minX, w.left);
+        maxX = Math.max(maxX, w.right);
+        minY = Math.min(minY, w.top);
+        maxY = Math.max(maxY, w.bottom);
       }
     }
 
-    // Crear rectángulo blanco DEBAJO de la frase
-    // Dimensiones: 7cm de alto × 10cm de ancho
-    // Conversión: 1cm = 283.465/10 = 28.3465 puntos
-    const cmToPoints = 28.3465;
-    const rectHeight = 7 * cmToPoints;  // 7 cm = ~198.4 puntos
-    const rectWidth = 10 * cmToPoints;  // 10 cm = ~283.4 puntos
+    // ── Coordenadas PDF del borde inferior del texto ──────────────────────────
+    // En imagen:  Y crece hacia abajo  → maxY es el borde visual inferior del texto
+    // En PDF:     Y crece hacia arriba → borde inferior del texto = pdfH - maxY*scY
+    const pdfTextX      = minX * scX;
+    const pdfTextW      = (maxX - minX) * scX;
+    const pdfTextBottom = pdfH - maxY * scY; // coordenada Y (PDF) del borde inferior del texto
 
-    // Posición: centrado horizontalmente respecto a la frase, justo debajo
-    const fraseImgCenterX = (fraseMinX + fraseMaxX) / 2;
-    const rectImgX = Math.max(0, fraseImgCenterX - rectWidth / (2 * scX));
-    const rectImgY = fraseMaxY + 10; // 10 píxeles de separación
-    const rectImgW = rectWidth / scX;
-    const rectImgH = rectHeight / scY;
+    // Rectángulo blanco debajo de la etiqueta:
+    //   · Alto  = 7 cm  (≈ 198.4 pt)
+    //   · Ancho = ancho real de la cadena de texto detectada
+    const rectH = 7 * 28.3465; // 7 cm en puntos PDF
 
-    // Convertir a coordenadas PDF
-    const pdfRectX = rectImgX * scX;
-    const pdfRectY = pdfH - (rectImgY + rectImgH) * scY;
-    const pdfRectW = rectImgW * scX;
-    const pdfRectH = rectImgH * scY;
+    // En PDF el parámetro `y` de drawRectangle es la esquina inferior-izquierda.
+    // El rectángulo empieza visualmente en pdfTextBottom y se extiende 7 cm hacia abajo.
+    const rectX = Math.max(0, pdfTextX);
+    const rectY = Math.max(0, pdfTextBottom - rectH);
+    const rectW = Math.min(pdfW - rectX, pdfTextW);
 
-    targetPage.drawRectangle({
-      x: Math.max(0, pdfRectX),
-      y: Math.max(0, pdfRectY),
-      width: Math.min(pdfW - pdfRectX, pdfRectW),
-      height: pdfRectH,
-      color: rgb(1, 1, 1), // Blanco
-    });
+    targetPage.drawRectangle({ x: rectX, y: rectY, width: rectW, height: rectH, color: rgb(0, 0, 0) });
 
     console.log(
-      `✅ Rectángulo de firma censura (7cm×10cm) colocado debajo de: "${words.slice(words.indexOf(prestadorAnchor), words.indexOf(prestadorAnchor) + 5).map((w) => w.text).join(" ")}"`
+      `✅ Pág. 6: rectángulo blanco (7 cm × ${(pdfTextW / 28.3465).toFixed(1)} cm) bajo "EL PRESTADOR DE SERVICIOS"`
     );
   } catch (error) {
-    console.log(`⚠ OCR PRESTADOR Página 6: ${error.message}`);
+    console.log(`⚠ OCR PRESTADOR página 6: ${error.message}`);
   } finally {
     if (tempPdfPath && fs.existsSync(tempPdfPath)) fs.unlinkSync(tempPdfPath);
-    if (imgPath && fs.existsSync(imgPath)) fs.unlinkSync(imgPath);
-    if (tsvPath && fs.existsSync(tsvPath)) fs.unlinkSync(tsvPath);
+    if (imgPath    && fs.existsSync(imgPath))    fs.unlinkSync(imgPath);
+    if (tsvPath    && fs.existsSync(tsvPath))    fs.unlinkSync(tsvPath);
   }
 }
 
@@ -497,7 +526,7 @@ async function detectarYCensurarFirmaUltimaPagina(pdfBytes, pdfDoc, font) {
       // mitad derecha de la página y en el 70% superior. El aviso de privacidad
       // al pie contiene "Prestadoras de Servicios" pero está en la parte inferior
       // e izquierda — esos matches se ignoran.
-      const enMitadDerecha = !isNaN(left) && left > imgW * 0.30;
+      const enMitadDerecha = !isNaN(left) && left > imgW * 0.10;
       const enMitadSuperior = !isNaN(top) && top < imgH * 0.70;
       if ((text.includes("PRESTADOR") || text.includes("SERVICIOS")) && enMitadDerecha && enMitadSuperior) {
         anchorImgY = top;
@@ -542,7 +571,7 @@ async function detectarYCensurarFirmaUltimaPagina(pdfBytes, pdfDoc, font) {
         y: Math.max(0, pdfBloqueY),
         width: Math.min(pdfW - pdfBloqueX, pdfBloqueW),
         height: pdfBloqueH,
-        color: rgb(1, 1, 1),
+        color: rgb(0, 0, 0),
       });
     } else {
       console.log("⚠ No se encontró 'PRESTADOR' en última página, usando fallback");
@@ -558,16 +587,17 @@ async function detectarYCensurarFirmaUltimaPagina(pdfBytes, pdfDoc, font) {
   }
 }
 
-// Fallback: cubre la zona central-derecha donde aparece la firma del prestador de servicios
-// La sección "EL PRESTADOR DE SERVICIOS" + firma autógrafa + nombre ocupa aprox 38–62% desde abajo
+// Fallback: cubre la zona donde aparece la firma del prestador de servicios
+// La sección "EL PRESTADOR DE SERVICIOS" + firma autógrafa + nombre ocupa aprox 30–58% desde arriba
 function aplicarFallbackFirmaUltimaPagina(page, pdfW, pdfH, font) {
-  const x = pdfW * 0.40;
-  const y = pdfH * 0.36;
-  const w = pdfW * 0.58;
-  const h = pdfH * 0.26;
+  // En PDF: Y crece hacia arriba. La firma está al 30–58% desde arriba → 42–70% desde abajo.
+  const x = pdfW * 0.15;   // empieza al 15% desde la izquierda
+  const y = pdfH * 0.42;   // borde inferior del rect = 42% desde abajo (58% desde arriba)
+  const w = pdfW * 0.75;   // 75% de ancho (hasta el 90% desde la izquierda)
+  const h = pdfH * 0.30;   // 30% de alto → borde superior en 72% desde abajo (28% desde arriba)
 
-  // Rectángulo blanco (censura sin OCR)
-  page.drawRectangle({ x, y, width: w, height: h, color: rgb(1, 1, 1) });
+  // Rectángulo negro (censura sin OCR)
+  page.drawRectangle({ x, y, width: w, height: h, color: rgb(0, 0, 0) });
 }
 
 // Detectar y censurar el nombre del prestador de servicios en página 2 usando OCR.
