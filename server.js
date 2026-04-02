@@ -512,7 +512,11 @@ async function detectarYCensurarFirmaUltimaPagina(pdfBytes, pdfDoc, font) {
     let anchorImgX = null;
     let anchorImgH = 40;
     let anchorImgW = 400;
+    let phraseMinX = Infinity;
+    let phraseMaxX = 0;
 
+    // Primera pasada: encontrar la palabra ancla
+    const PHRASE_TOKENS = new Set(["EL", "PRESTADOR", "DE", "SERVICIOS", "SERVICIO"]);
     for (let i = 1; i < lines.length; i++) {
       const cols = lines[i].split("\t");
       if (cols.length < 12) continue;
@@ -537,40 +541,78 @@ async function detectarYCensurarFirmaUltimaPagina(pdfBytes, pdfDoc, font) {
       }
     }
 
+    // Segunda pasada: expandir al ancho real de toda la frase "EL PRESTADOR DE SERVICIOS"
+    if (anchorImgY !== null) {
+      const lineThresh = anchorImgH * 1.5;
+      for (let i = 1; i < lines.length; i++) {
+        const cols = lines[i].split("\t");
+        if (cols.length < 12) continue;
+        const text = cols[11]?.trim().toUpperCase().replace(/[^A-ZÁÉÍÓÚÑ]/g, "") || "";
+        const left = parseInt(cols[6]);
+        const top = parseInt(cols[7]);
+        const w = parseInt(cols[8]);
+        if (isNaN(left) || isNaN(top) || isNaN(w)) continue;
+        if (Math.abs(top - anchorImgY) > lineThresh) continue;
+        if (PHRASE_TOKENS.has(text)) {
+          phraseMinX = Math.min(phraseMinX, left);
+          phraseMaxX = Math.max(phraseMaxX, left + w);
+        }
+      }
+      if (phraseMaxX > phraseMinX) {
+        anchorImgX = phraseMinX;
+        anchorImgW = phraseMaxX - phraseMinX;
+      }
+    }
+
     if (anchorImgY !== null) {
       // La firma está DEBAJO del ancla "EL PRESTADOR DE SERVICIOS"
-      // Layout: [ancla] → [firma autógrafa] → [nombre del empleado]
-      // Cubrimos desde el ancla hasta el final del nombre con un solo rectángulo blanco
+      // Layout: [ancla visible] → [firma autógrafa ← SOLO ESTO SE CENSURA] → [nombre visible]
+      //
+      // La firma autógrafa no genera texto en OCR, así que el primer texto
+      // significativo después del ancla es el nombre del empleado.
+      // Censuramos el espacio entre el borde inferior del ancla y el borde
+      // superior del nombre.
 
-      // Buscar hasta dónde llega el nombre del empleado (texto debajo del ancla, max 450px)
-      let bloqueImgYFin = anchorImgY + anchorImgH + 300; // fallback
+      const anchorBottom = anchorImgY + anchorImgH; // borde inferior del texto ancla
+
+      // Buscar el nombre del empleado: primera línea de texto significativa
+      // que aparezca entre 20px y 500px por debajo del borde inferior del ancla
+      let nameImgYTop = anchorBottom + 220; // fallback si no se detecta nombre
       for (let i = 1; i < lines.length; i++) {
         const cols = lines[i].split("\t");
         if (cols.length < 12) continue;
         const rowTop = parseInt(cols[7]);
-        const rowH = parseInt(cols[9]);
         const rowText = cols[11]?.trim() || "";
-        if (!isNaN(rowTop) && rowTop > anchorImgY + anchorImgH && rowTop < anchorImgY + anchorImgH + 450 && rowText.length > 1) {
-          bloqueImgYFin = Math.max(bloqueImgYFin, rowTop + (isNaN(rowH) ? 30 : rowH));
+        if (
+          !isNaN(rowTop) &&
+          rowTop > anchorBottom + 20 &&
+          rowTop < anchorBottom + 500 &&
+          rowText.length > 2
+        ) {
+          nameImgYTop = rowTop;
+          break; // primer texto encontrado = nombre del empleado
         }
       }
 
-      // Rectángulo que cubre: ancla + firma + nombre
-      const bloqueImgY = Math.max(0, anchorImgY - 10);
-      const bloqueImgH = bloqueImgYFin - bloqueImgY + 30;
-      const bloqueImgX = Math.max(0, anchorImgX - 120);
-      const bloqueImgW = Math.min(imgW - bloqueImgX, anchorImgW + 500);
+      // Rectángulo que cubre SOLO la firma:
+      //   · Ancho: igual al ancho de la frase "EL PRESTADOR DE SERVICIOS"
+      //   · Arriba: justo después del texto ancla (+5px de margen)
+      //   · Abajo:  justo antes del nombre (-5px de margen)
+      const sigImgY = anchorBottom + 5;
+      const sigImgH = Math.max(20, nameImgYTop - 5 - sigImgY);
+      const sigImgX = Math.max(0, anchorImgX - 5);
+      const sigImgW = anchorImgW + 10; // ancho de la frase + pequeño padding
 
-      const pdfBloqueX = bloqueImgX * scX;
-      const pdfBloqueY = pdfH - (bloqueImgY + bloqueImgH) * scY;
-      const pdfBloqueW = bloqueImgW * scX;
-      const pdfBloqueH = bloqueImgH * scY;
+      const pdfBloqueX = sigImgX * scX;
+      const pdfBloqueY = pdfH - (sigImgY + sigImgH) * scY;
+      const pdfBloqueW = sigImgW * scX;
+      const pdfBloqueH = sigImgH * scY;
 
       lastPage.drawRectangle({
         x: Math.max(0, pdfBloqueX),
         y: Math.max(0, pdfBloqueY),
         width: Math.min(pdfW - pdfBloqueX, pdfBloqueW),
-        height: pdfBloqueH,
+        height: Math.max(0, pdfBloqueH),
         color: rgb(0, 0, 0),
       });
     } else {
@@ -590,13 +632,15 @@ async function detectarYCensurarFirmaUltimaPagina(pdfBytes, pdfDoc, font) {
 // Fallback: cubre la zona donde aparece la firma del prestador de servicios
 // La sección "EL PRESTADOR DE SERVICIOS" + firma autógrafa + nombre ocupa aprox 30–58% desde arriba
 function aplicarFallbackFirmaUltimaPagina(page, pdfW, pdfH, font) {
-  // En PDF: Y crece hacia arriba. La firma está al 30–58% desde arriba → 42–70% desde abajo.
+  // En PDF: Y crece hacia arriba.
+  // La firma autógrafa (solo la rúbrica) está aprox entre 42–54% desde arriba
+  // → en coordenadas PDF: entre 46–58% desde abajo.
+  // Se deja visible el texto "EL PRESTADOR DE SERVICIOS" (encima) y el nombre (debajo).
   const x = pdfW * 0.15;   // empieza al 15% desde la izquierda
-  const y = pdfH * 0.42;   // borde inferior del rect = 42% desde abajo (58% desde arriba)
-  const w = pdfW * 0.75;   // 75% de ancho (hasta el 90% desde la izquierda)
-  const h = pdfH * 0.30;   // 30% de alto → borde superior en 72% desde abajo (28% desde arriba)
+  const y = pdfH * 0.46;   // borde inferior = 46% desde abajo (~54% desde arriba)
+  const w = pdfW * 0.75;   // 75% de ancho
+  const h = pdfH * 0.10;   // 10% de alto (solo cubre la rúbrica, ~4-5cm)
 
-  // Rectángulo negro (censura sin OCR)
   page.drawRectangle({ x, y, width: w, height: h, color: rgb(0, 0, 0) });
 }
 
@@ -820,12 +864,6 @@ async function censorPdf(inputBytes, outputPath, filename) {
 
   // Censurar firmas/rúbricas laterales en todas las páginas
   await censurarFirmasLaterales(pdfDoc, montserratFont);
-
-  // Censurar nombre del prestador en página 2 (OCR: busca "PRESTADOR" y censura el nombre que sigue)
-  await detectarYCensurarNombrePrestador(inputBytes, pdfDoc);
-
-  // Detectar y censurar "EL PRESTADOR DE SERVICIOS" en página 6 (coloca rectángulo blanco 7cm×10cm debajo)
-  await detectarYCensurarPrestadorPagina6(inputBytes, pdfDoc);
 
   // Censurar firma autógrafa en la última página (ancla: "PRESTADOR DE SERVICIOS")
   await detectarYCensurarFirmaUltimaPagina(inputBytes, pdfDoc, montserratFont);
