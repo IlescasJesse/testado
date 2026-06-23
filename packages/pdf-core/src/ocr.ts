@@ -299,22 +299,32 @@ export async function detectarDatos(
     const textoPlano = await tesseract.recognize(imgPath, tesseractConfig);
     const textoUpper = textoPlano.toUpperCase();
 
-    // 4. OCR en TSV (posiciones por palabra)
-    execSync(
-      `tesseract "${imgPath}" "${tsvBasePath}" -l spa --oem 1 --psm 3 tsv`,
-      { encoding: "utf8" },
-    );
-
-    // 5. Extraer tokens del TSV
+    // 4-5. Segundo pase OCR → TSV (posiciones por palabra). Es SOLO un fallback
+    //      para extraer candidatos RFC token a token. Se aísla en su propio
+    //      try/catch para que un fallo aquí (p. ej. tesseract CLI no disponible
+    //      o error de I/O) NO descarte el RFC/nombre/fecha ya obtenidos del
+    //      primer pase de texto plano.
     const tokensTSV: string[] = [];
-    if (fs.existsSync(tsvPath)) {
-      const tsv = fs.readFileSync(tsvPath, "utf8");
-      for (const linea of tsv.split("\n").slice(1)) {
-        const cols = linea.split("\t");
-        if (cols.length < 12) continue;
-        const tok = cols[11]?.trim();
-        if (tok) tokensTSV.push(tok);
+    try {
+      execSync(
+        `tesseract "${imgPath}" "${tsvBasePath}" -l spa --oem 1 --psm 3 tsv`,
+        { encoding: "utf8" },
+      );
+
+      if (fs.existsSync(tsvPath)) {
+        const tsv = fs.readFileSync(tsvPath, "utf8");
+        for (const linea of tsv.split("\n").slice(1)) {
+          const cols = linea.split("\t");
+          if (cols.length < 12) continue;
+          const tok = cols[11]?.trim();
+          if (tok) tokensTSV.push(tok);
+        }
       }
+    } catch (errTSV) {
+      const msg = errTSV instanceof Error ? errTSV.message : String(errTSV);
+      console.warn(
+        `[ocr] Pase TSV falló (se continúa con el texto plano): ${msg}`,
+      );
     }
 
     // 6. Extraer campos

@@ -9,6 +9,7 @@
  */
 
 import { describe, it, expect } from "vitest";
+import { execSync } from "node:child_process";
 import { detectarDatos } from "./ocr.js";
 import type { ResultadoOCR } from "./ocr.js";
 
