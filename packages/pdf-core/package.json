@@ -6,5 +6,9 @@
   "types": "./src/index.ts",
   "exports": {
     ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "node-tesseract-ocr": "^2.2.1",
+    "pdf-poppler": "^0.2.3"
   }
 }
