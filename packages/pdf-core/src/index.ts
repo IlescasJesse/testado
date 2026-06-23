@@ -9,5 +9,4 @@ export type { ResultadoOCR, OpcionesOCR } from "./ocr.js";
 export { testarPdf } from "./censura.js";
 export type { ResultadoCensura } from "./censura.js";
 
-// Las siguientes utilidades se exportarán aquí cuando estén implementadas:
-// export { cifrarBuffer } from "./cifrado.js";   // Task 5 — cifrado
+export { qpdfDisponible, bloquear, desbloquear } from "./cifrado.js";
