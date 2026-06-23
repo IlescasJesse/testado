@@ -1,12 +1,23 @@
 {
   "name": "testado-monorepo",
   "private": true,
-  "workspaces": ["packages/*", "apps/*"],
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
   "scripts": {
     "dev:api": "npm run dev -w @testado/api",
     "dev:web": "npm run dev -w @testado/web",
     "test": "vitest run",
     "prisma:migrate": "prisma migrate dev"
   },
-  "devDependencies": { "typescript": "^5.4.0", "vitest": "^1.6.0" }
+  "devDependencies": {
+    "@types/node": "^26.0.0",
+    "prisma": "^7.8.0",
+    "typescript": "^5.4.0",
+    "vitest": "^1.6.0"
+  },
+  "dependencies": {
+    "@prisma/client": "^7.8.0"
+  }
 }
