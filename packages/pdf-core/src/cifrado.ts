@@ -123,8 +123,14 @@ export function desbloquear(input: Buffer, ownerPwd: string): Buffer {
   const rutaSalida = escribirTemp(Buffer.alloc(0), "-dec.pdf");
 
   try {
+    // qpdf exige la forma `--password=<valor>` (la forma separada
+    // `--password <valor>` es rechazada con "must be given as
+    // --password=password" en qpdf 12.x). Concatenamos el valor sin
+    // construir un string formateado ambiguo. Es seguro frente a caracteres
+    // especiales porque spawnSync con array NO usa shell: cada elemento del
+    // array es un argv literal sin interpretación de comillas/metacaracteres.
     const args = [
-      `--password=${ownerPwd}`,
+      "--password=".concat(ownerPwd),
       "--decrypt",
       "--",
       rutaEntrada,

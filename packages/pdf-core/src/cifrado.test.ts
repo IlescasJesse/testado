@@ -74,10 +74,14 @@ describe.skipIf(!QPDF_OK)(
       expect(descifrado.slice(0, 4).toString("ascii")).toBe("%PDF");
     });
 
-    it("desbloquear con contraseña incorrecta lanza Error", () => {
+    it("desbloquear con contraseña incorrecta lanza Error del camino esperado", () => {
       const cifrado = bloquear(pdfMinimo, "claveCorrecta");
 
-      expect(() => desbloquear(cifrado, "claveIncorrecta")).toThrow();
+      // El error debe provenir del fallo de qpdf por contraseña inválida,
+      // no de otro camino (p.ej. archivo no encontrado).
+      expect(() => desbloquear(cifrado, "claveIncorrecta")).toThrow(
+        /password|contraseña|decrypt|invalid|desbloquear/i,
+      );
     });
   },
 );
