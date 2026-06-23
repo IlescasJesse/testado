@@ -3,3 +3,7 @@ temp_uploads/
 temp_umploads/
 recovery_testado*/
 recovery_testato*/
+dist/
+.env
+.next/
+.superpowers/
