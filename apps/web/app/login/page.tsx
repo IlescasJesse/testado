@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, FormEvent } from "react";
-import { useRouter } from "next/navigation";
 import Box from "@mui/material/Box";
 import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
@@ -15,7 +14,6 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const router = useRouter();
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -30,7 +28,7 @@ export default function LoginPage() {
       });
 
       if (res.ok) {
-        router.push("/");
+        window.location.href = "/";
       } else {
         const body = await res.json().catch(() => ({ message: "Error" }));
         setError(body.message ?? "Contraseña incorrecta");
