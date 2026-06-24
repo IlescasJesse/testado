@@ -237,7 +237,21 @@ router.get("/", async (req: Request, res: Response): Promise<void> => {
       orderBy: { procesadoEn: "desc" },
     });
 
-    res.json({ success: true, contratos });
+    // Aplanar a ContratoDTO (campos planos como define @testado/shared)
+    const dtos = contratos.map((c) => ({
+      id: c.id,
+      rfc: c.empleado.rfc,
+      nombre: c.empleado.nombre,
+      estado: c.estado,
+      anio: c.trimestre.anio,
+      periodo: c.trimestre.periodo,
+      version: c.version,
+      nombreArchivo: c.nombreArchivo,
+      procesadoEn: c.procesadoEn.toISOString(),
+      errorMsg: c.errorMsg,
+    }));
+
+    res.json({ success: true, contratos: dtos });
   } catch (err: unknown) {
     const mensaje = err instanceof Error ? err.message : "Error interno del servidor.";
     res.status(500).json({ success: false, message: mensaje });

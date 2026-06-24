@@ -78,8 +78,8 @@ export default function BloquearPage() {
     try {
       const estado = TAB_ESTADOS[tabIdx];
       const path = estado ? `/api/contratos?estado=${estado}` : "/api/contratos";
-      const data = await apiGet<ContratoDTO[]>(path);
-      setContratos(data);
+      const data = await apiGet<{ contratos: ContratoDTO[] }>(path);
+      setContratos(data.contratos);
     } catch (err) {
       setLoadError(err instanceof Error ? err.message : "Error al cargar contratos");
       setContratos([]);

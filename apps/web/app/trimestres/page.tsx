@@ -65,8 +65,8 @@ export default function TrimestresPage() {
     setLoading(true);
     setError(null);
     try {
-      const data = await apiGet<ResumenTrimestre[]>("/api/trimestres");
-      setTrimestres(data);
+      const data = await apiGet<{ trimestres: ResumenTrimestre[] }>("/api/trimestres");
+      setTrimestres(data.trimestres);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error al cargar trimestres");
     } finally {
@@ -90,10 +90,10 @@ export default function TrimestresPage() {
       setDialogState({ open: true, anio, periodo });
 
       try {
-        const todos = await apiGet<ContratoDTO[]>(
+        const data = await apiGet<{ contratos: ContratoDTO[] }>(
           `/api/contratos?anio=${anio}&periodo=${periodo}`
         );
-        const bloqueados = todos.filter((c) => c.estado === "BLOQUEADO");
+        const bloqueados = data.contratos.filter((c) => c.estado === "BLOQUEADO");
         setDialogContratos(bloqueados);
         setSelectedIds(bloqueados.map((c) => c.id));
       } catch (err) {
