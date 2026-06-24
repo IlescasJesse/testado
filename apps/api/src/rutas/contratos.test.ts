@@ -192,13 +192,13 @@ describe("POST /api/contratos/testar", () => {
     expect(mockProcesarArchivo).toHaveBeenCalledTimes(2);
   });
 
-  it("responde 400 si periodo está fuera de rango (1-4)", async () => {
+  it("responde 400 si periodo está fuera de rango (1-5)", async () => {
     const app = crearApp();
 
     const respuesta = await request(app)
       .post("/api/contratos/testar")
       .field("anio", "2024")
-      .field("periodo", "5")
+      .field("periodo", "6")
       .attach("pdfs", Buffer.from("%PDF-1.4 test"), "test.pdf")
       .expect(400);
 

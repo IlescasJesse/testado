@@ -333,7 +333,7 @@ describe("GET /api/trimestres/:anio/:periodo/respaldo", () => {
     expect(respuesta.headers["content-type"]).toMatch(/zip/i);
     // Verifica que se agregó el LEEME.txt en lugar de archivo o manifiesto
     expect(fakeArchive.append).toHaveBeenCalledWith(
-      expect.stringContaining("No hay contratos BLOQUEADOS"),
+      expect.stringContaining("No hay contratos bloqueados o desbloqueados"),
       expect.objectContaining({ name: "LEEME.txt" }),
     );
     expect(fakeArchive.file).not.toHaveBeenCalled();
@@ -358,7 +358,7 @@ describe("GET /api/trimestres/:anio/:periodo/respaldo", () => {
       };
     };
     expect(callArgs.where.eliminado).toBe(false);
-    expect(callArgs.where.estado).toBe("BLOQUEADO");
+    expect(callArgs.where.estado).toEqual({ in: ["BLOQUEADO", "DESBLOQUEADO"] });
     expect(callArgs.where.trimestre.anio).toBe(2025);
     expect(callArgs.where.trimestre.periodo).toBe(3);
   });
