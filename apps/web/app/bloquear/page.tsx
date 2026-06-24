@@ -8,6 +8,10 @@ import {
   Checkbox,
   Chip,
   CircularProgress,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   IconButton,
   Paper,
   Table,
@@ -15,11 +19,12 @@ import {
   TableCell,
   TableContainer,
   TableHead,
+  TablePagination,
   TableRow,
   Tabs,
   Tab,
+  TextField,
   Typography,
-  Badge,
 } from "@mui/material";
 import LockIcon from "@mui/icons-material/Lock";
 import LockOpenIcon from "@mui/icons-material/LockOpen";
@@ -30,13 +35,17 @@ import RefreshIcon from "@mui/icons-material/Refresh";
 import ListAltIcon from "@mui/icons-material/ListAlt";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import DownloadIcon from "@mui/icons-material/Download";
+import VpnKeyIcon from "@mui/icons-material/VpnKey";
 import { apiGet, apiPost, urlArchivo } from "@/lib/api";
-import type { ContratoDTO, Estado, ResumenBloqueo } from "@/lib/api";
+import type { ContratoDTO, Estado, ResumenBloqueo, ResumenDesbloqueo } from "@/lib/api";
 import VisorPdf from "@/components/VisorPdf";
 
-type TabIndex = 0 | 1 | 2 | 3;
+type TabIndex = 0 | 1 | 2;
 
-const TAB_ESTADOS: Array<Estado | null> = [null, "TESTADO", "BLOQUEADO", "DESBLOQUEADO"];
+const TAB_FILTROS: Array<Estado | null> = [null, "BLOQUEADO", "DESBLOQUEADO"];
+const ETIQUETAS_TAB = ["Todos", "Bloqueados", "Desbloqueados"];
+
+const FILAS_POR_PAGINA = [10, 25, 50] as const;
 
 function formatFecha(iso: string): string {
   try {
@@ -71,20 +80,25 @@ export default function BloquearPage() {
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [selected, setSelected] = useState<Set<number>>(new Set<number>());
-  const [bloqueandoError, setBloqueandoError] = useState<string | null>(null);
-  const [bloqueandoSuccess, setBloqueandoSuccess] = useState<string | null>(null);
+  const [accionError, setAccionError] = useState<string | null>(null);
+  const [accionSuccess, setAccionSuccess] = useState<string | null>(null);
   const [bloqueando, setBloqueando] = useState(false);
   const [visorId, setVisorId] = useState<number | null>(null);
   const [visorTitulo, setVisorTitulo] = useState<string>("");
+  const [pagina, setPagina] = useState(0);
+  const [filasPorPagina, setFilasPorPagina] = useState(25);
+  const [dialogPwdOpen, setDialogPwdOpen] = useState(false);
+  const [pwdInput, setPwdInput] = useState("");
 
   const loadContratos = useCallback(async (tabIdx: TabIndex) => {
     setLoading(true);
     setLoadError(null);
     try {
-      const estado = TAB_ESTADOS[tabIdx];
+      const estado = TAB_FILTROS[tabIdx];
       const path = estado ? `/api/contratos?estado=${estado}` : "/api/contratos";
       const data = await apiGet<{ contratos: ContratoDTO[] }>(path);
       setContratos(data.contratos);
+      setPagina(0);
     } catch (err) {
       setLoadError(err instanceof Error ? err.message : "Error al cargar contratos");
       setContratos([]);
@@ -95,8 +109,8 @@ export default function BloquearPage() {
 
   useEffect(() => {
     setSelected(new Set<number>());
-    setBloqueandoError(null);
-    setBloqueandoSuccess(null);
+    setAccionError(null);
+    setAccionSuccess(null);
     loadContratos(tab);
   }, [tab, loadContratos]);
 
@@ -104,32 +118,34 @@ export default function BloquearPage() {
     setTab(newValue as TabIndex);
   };
 
-  // Bloqueables = recién testados o desbloqueados (se pueden cifrar / re-cifrar).
-  const ESTADOS_BLOQUEABLES: Estado[] = ["TESTADO", "DESBLOQUEADO"];
-  const esBloqueable = (c: ContratoDTO) => ESTADOS_BLOQUEABLES.includes(c.estado);
+  // ── Estados para cada acción ──────────────────────────────────────────────────
 
-  const bloqueablesIds = contratos.filter(esBloqueable).map((c) => c.id);
+  const idsBloqueables = contratos
+    .filter((c) => c.estado === "TESTADO" || c.estado === "DESBLOQUEADO")
+    .map((c) => c.id);
+  const idsDesbloqueables = contratos
+    .filter((c) => c.estado === "BLOQUEADO")
+    .map((c) => c.id);
+
+  const selBloqueables = idsBloqueables.filter((id) => selected.has(id));
+  const selDesbloqueables = idsDesbloqueables.filter((id) => selected.has(id));
+  const hayMezcla = selBloqueables.length > 0 && selDesbloqueables.length > 0;
 
   const allBloqueablesSelected =
-    bloqueablesIds.length > 0 && bloqueablesIds.every((id) => selected.has(id));
-  const someBloqueablesSelected =
-    bloqueablesIds.some((id) => selected.has(id)) && !allBloqueablesSelected;
+    idsBloqueables.length > 0 && idsBloqueables.every((id) => selected.has(id));
+  const allDesbloqueablesSelected =
+    idsDesbloqueables.length > 0 && idsDesbloqueables.every((id) => selected.has(id));
+  const someSelected =
+    idsBloqueables.some((id) => selected.has(id)) || idsDesbloqueables.some((id) => selected.has(id));
+  const allSelected = allBloqueablesSelected && allDesbloqueablesSelected;
 
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      setSelected(new Set<number>(bloqueablesIds));
+      setSelected(new Set<number>([...idsBloqueables, ...idsDesbloqueables]));
     } else {
       setSelected(new Set<number>());
     }
   };
-
-  // Desglose del contador cuando hay mezcla de estados seleccionados.
-  const selTestados = contratos.filter(
-    (c) => c.estado === "TESTADO" && selected.has(c.id),
-  ).length;
-  const selDesbloqueados = contratos.filter(
-    (c) => c.estado === "DESBLOQUEADO" && selected.has(c.id),
-  ).length;
 
   const handleSelectRow = (id: number, checked: boolean) => {
     setSelected((prev) => {
@@ -142,6 +158,9 @@ export default function BloquearPage() {
       return next;
     });
   };
+
+  const esSeleccionable = (c: ContratoDTO) =>
+    c.estado === "TESTADO" || c.estado === "BLOQUEADO" || c.estado === "DESBLOQUEADO";
 
   const handleVerPdf = (c: ContratoDTO) => {
     setVisorTitulo(`${c.rfc} — ${c.nombre ?? c.nombreArchivo}`);
@@ -162,40 +181,92 @@ export default function BloquearPage() {
     }
   };
 
+  // ── Bloquear ──────────────────────────────────────────────────────────────────
+
   const handleBloquear = async () => {
-    const ids = Array.from(selected);
+    const ids = Array.from(selected).filter((id) => idsBloqueables.includes(id));
     if (ids.length === 0) return;
 
     setBloqueando(true);
-    setBloqueandoError(null);
-    setBloqueandoSuccess(null);
+    setAccionError(null);
+    setAccionSuccess(null);
 
     try {
       const result = await apiPost<ResumenBloqueo | { success: false; message: string }>(
         "/api/contratos/bloquear",
-        { ids }
+        { ids },
       );
 
       if (result.status === 409) {
         const errData = result.data as { success: false; message?: string };
         const detail = errData.message ? ` — ${errData.message}` : "";
-        setBloqueandoError(
-          `qpdf no disponible en este servidor. No es posible bloquear contratos sin qpdf instalado.${detail}`
+        setAccionError(
+          `qpdf no disponible en este servidor. No es posible bloquear contratos sin qpdf instalado.${detail}`,
         );
       } else {
         const resumen = result.data as ResumenBloqueo;
-        setBloqueandoSuccess(`Bloqueados: ${resumen.bloqueados} contratos`);
+        setAccionSuccess(`Bloqueados: ${resumen.bloqueados} contratos`);
         setSelected(new Set<number>());
         await loadContratos(tab);
       }
     } catch (err) {
-      setBloqueandoError(err instanceof Error ? err.message : "Error al bloquear contratos");
+      setAccionError(err instanceof Error ? err.message : "Error al bloquear contratos");
     } finally {
       setBloqueando(false);
     }
   };
 
-  const testadosCount = contratos.filter((c) => c.estado === "TESTADO").length;
+  // ── Desbloquear ───────────────────────────────────────────────────────────────
+
+  const abrirDialogDesbloquear = () => {
+    setPwdInput("");
+    setDialogPwdOpen(true);
+  };
+
+  const handleDesbloquear = async () => {
+    const ids = Array.from(selected).filter((id) => idsDesbloqueables.includes(id));
+    if (ids.length === 0) return;
+
+    setDialogPwdOpen(false);
+    setBloqueando(true);
+    setAccionError(null);
+    setAccionSuccess(null);
+
+    try {
+      const result = await apiPost<ResumenDesbloqueo | { success: false; message?: string }>(
+        "/api/contratos/desbloquear",
+        { ids, password: pwdInput },
+      );
+
+      if (result.status === 401) {
+        setAccionError("Contraseña incorrecta. No se puede desbloquear.");
+      } else {
+        const resumen = result.data as ResumenDesbloqueo;
+        setAccionSuccess(`Desbloqueados: ${resumen.desbloqueados ?? 0} contratos`);
+        setSelected(new Set<number>());
+        await loadContratos(tab);
+      }
+    } catch (err) {
+      setAccionError(err instanceof Error ? err.message : "Error al desbloquear contratos");
+    } finally {
+      setBloqueando(false);
+    }
+  };
+
+  // ── Paginación ────────────────────────────────────────────────────────────────
+
+  const paginated = contratos.slice(pagina * filasPorPagina, (pagina + 1) * filasPorPagina);
+
+  const handleChangePage = (_event: unknown, newPage: number) => {
+    setPagina(newPage);
+  };
+
+  const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setFilasPorPagina(parseInt(event.target.value, 10));
+    setPagina(0);
+  };
+
+  const iconosTab = [<ListAltIcon key="t" />, <LockIcon key="b" />, <LockOpenIcon key="d" />];
 
   return (
     <Box sx={{ maxWidth: 1100, mx: "auto", p: 3 }}>
@@ -203,31 +274,22 @@ export default function BloquearPage() {
         Bloquear Contratos
       </Typography>
 
-      {/* Tabs */}
+      {/* Tabs: Todos | Bloqueados | Desbloqueados */}
       <Tabs value={tab} onChange={handleTabChange} sx={{ mb: 2 }}>
-        <Tab icon={<ListAltIcon />} iconPosition="start" label="Todos" />
-        <Tab
-          icon={<CheckCircleIcon />}
-          iconPosition="start"
-          label={
-            <Badge badgeContent={testadosCount} color="success" max={999}>
-              <Box sx={{ pr: testadosCount > 0 ? 2 : 0 }}>Testados</Box>
-            </Badge>
-          }
-        />
-        <Tab icon={<LockIcon />} iconPosition="start" label="Bloqueados" />
-        <Tab icon={<LockOpenIcon />} iconPosition="start" label="Desbloqueados" />
+        {ETIQUETAS_TAB.map((label, i) => (
+          <Tab key={label} icon={iconosTab[i]} iconPosition="start" label={label} />
+        ))}
       </Tabs>
 
-      {/* Alerts */}
-      {bloqueandoError && (
-        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setBloqueandoError(null)}>
-          {bloqueandoError}
+      {/* Alertas */}
+      {accionError && (
+        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setAccionError(null)}>
+          {accionError}
         </Alert>
       )}
-      {bloqueandoSuccess && (
-        <Alert severity="success" sx={{ mb: 2 }} onClose={() => setBloqueandoSuccess(null)}>
-          {bloqueandoSuccess}
+      {accionSuccess && (
+        <Alert severity="success" sx={{ mb: 2 }} onClose={() => setAccionSuccess(null)}>
+          {accionSuccess}
         </Alert>
       )}
       {loadError && (
@@ -236,22 +298,38 @@ export default function BloquearPage() {
         </Alert>
       )}
 
-      {/* Action bar */}
-      <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 2 }}>
+      {/* Barra de acciones */}
+      <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 2, flexWrap: "wrap" }}>
         <Typography variant="body2" color="text.secondary">
           {selected.size} seleccionados
-          {selected.size > 0 && selTestados > 0 && selDesbloqueados > 0
-            ? ` (${selTestados} testados, ${selDesbloqueados} desbloqueados)`
-            : ""}
+          {hayMezcla
+            ? ` (${selBloqueables.length} p/bloquear, ${selDesbloqueables.length} p/desbloquear)`
+            : selBloqueables.length > 0
+              ? " (bloqueables)"
+              : selDesbloqueables.length > 0
+                ? " (desbloqueables)"
+                : ""}
         </Typography>
+
         <Button
           variant="contained"
           startIcon={<LockIcon />}
-          disabled={selected.size === 0 || bloqueando}
+          disabled={selBloqueables.length === 0 || bloqueando}
           onClick={handleBloquear}
         >
-          {bloqueando ? "Bloqueando..." : "Bloquear seleccionados"}
+          {bloqueando ? "Procesando..." : "Bloquear seleccionados"}
         </Button>
+
+        <Button
+          variant="outlined"
+          color="warning"
+          startIcon={<LockOpenIcon />}
+          disabled={selDesbloqueables.length === 0 || bloqueando}
+          onClick={abrirDialogDesbloquear}
+        >
+          Desbloquear seleccionados
+        </Button>
+
         <IconButton
           onClick={() => loadContratos(tab)}
           disabled={loading}
@@ -279,7 +357,40 @@ export default function BloquearPage() {
         />
       )}
 
-      {/* Table */}
+      {/* Diálogo de contraseña para desbloquear */}
+      <Dialog open={dialogPwdOpen} onClose={() => setDialogPwdOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+          <VpnKeyIcon color="warning" />
+          Contraseña de desbloqueo
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Ingresa la contraseña maestra para desbloquear {selDesbloqueables.length} contrato
+           {selDesbloqueables.length !== 1 ? "s" : ""}.
+          </Typography>
+          <TextField
+            label="Contraseña"
+            type="password"
+            value={pwdInput}
+            onChange={(e) => setPwdInput(e.target.value)}
+            fullWidth
+            autoFocus
+          />
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          <Button onClick={() => setDialogPwdOpen(false)}>Cancelar</Button>
+          <Button
+            variant="contained"
+            color="warning"
+            onClick={handleDesbloquear}
+            disabled={pwdInput.trim() === ""}
+          >
+            Desbloquear
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Tabla */}
       {!loading && (
         <>
           {contratos.length === 0 ? (
@@ -287,82 +398,101 @@ export default function BloquearPage() {
               No hay contratos con este filtro
             </Typography>
           ) : (
-            <TableContainer component={Paper} variant="outlined">
-              <Table size="small">
-                <TableHead>
-                  <TableRow>
-                    <TableCell padding="checkbox">
-                      <Checkbox
-                        checked={allBloqueablesSelected}
-                        indeterminate={someBloqueablesSelected}
-                        onChange={(e) => handleSelectAll(e.target.checked)}
-                        disabled={bloqueablesIds.length === 0}
-                      />
-                    </TableCell>
-                    <TableCell>RFC</TableCell>
-                    <TableCell>Nombre</TableCell>
-                    <TableCell>Trimestre</TableCell>
-                    <TableCell>Estado</TableCell>
-                    <TableCell>Archivo</TableCell>
-                    <TableCell>Fecha procesado</TableCell>
-                    <TableCell align="center">Acciones</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {contratos.map((c) => {
-                    const isChecked = selected.has(c.id);
-                    return (
-                      <TableRow key={c.id} hover selected={isChecked}>
-                        <TableCell padding="checkbox">
-                          <Checkbox
-                            checked={isChecked}
-                            disabled={!esBloqueable(c)}
-                            onChange={(e) => handleSelectRow(c.id, e.target.checked)}
-                          />
-                        </TableCell>
-                        <TableCell>{c.rfc}</TableCell>
-                        <TableCell>{c.nombre ?? "—"}</TableCell>
-                        <TableCell>{`${c.anio} T${c.periodo}`}</TableCell>
-                        <TableCell>
-                          <EstadoChip estado={c.estado} />
-                        </TableCell>
-                        <TableCell sx={{ maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                          {c.nombreArchivo}
-                        </TableCell>
-                        <TableCell>{formatFecha(c.procesadoEn)}</TableCell>
-                        <TableCell align="center">
-                          <IconButton
-                            size="small"
-                            aria-label="Ver PDF"
-                            title="Ver PDF"
-                            onClick={() => handleVerPdf(c)}
+            <Paper variant="outlined">
+              <TableContainer>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell padding="checkbox">
+                        <Checkbox
+                          checked={allSelected}
+                          indeterminate={someSelected && !allSelected}
+                          onChange={(e) => handleSelectAll(e.target.checked)}
+                          disabled={idsBloqueables.length === 0 && idsDesbloqueables.length === 0}
+                        />
+                      </TableCell>
+                      <TableCell>RFC</TableCell>
+                      <TableCell>Nombre</TableCell>
+                      <TableCell>Trimestre</TableCell>
+                      <TableCell>Estado</TableCell>
+                      <TableCell>Archivo</TableCell>
+                      <TableCell>Fecha procesado</TableCell>
+                      <TableCell align="center">Acciones</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {paginated.map((c) => {
+                      const isChecked = selected.has(c.id);
+                      return (
+                        <TableRow key={c.id} hover selected={isChecked}>
+                          <TableCell padding="checkbox">
+                            <Checkbox
+                              checked={isChecked}
+                              disabled={!esSeleccionable(c)}
+                              onChange={(e) => handleSelectRow(c.id, e.target.checked)}
+                            />
+                          </TableCell>
+                          <TableCell>{c.rfc}</TableCell>
+                          <TableCell>{c.nombre ?? "—"}</TableCell>
+                          <TableCell>{`${c.anio} T${c.periodo}`}</TableCell>
+                          <TableCell>
+                            <EstadoChip estado={c.estado} />
+                          </TableCell>
+                          <TableCell
+                            sx={{
+                              maxWidth: 200,
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              whiteSpace: "nowrap",
+                            }}
                           >
-                            <VisibilityIcon fontSize="small" />
-                          </IconButton>
-                          <IconButton
-                            size="small"
-                            aria-label="Descargar PDF"
-                            title="Descargar PDF"
-                            onClick={() => window.open(urlArchivo(c.id, true), "_blank")}
-                          >
-                            <DownloadIcon fontSize="small" />
-                          </IconButton>
-                          <IconButton
-                            size="small"
-                            title="Eliminar"
-                            aria-label="Eliminar contrato"
-                            onClick={() => handleEliminar(c.id)}
-                            color="error"
-                          >
-                            <DeleteOutlineIcon fontSize="small" />
-                          </IconButton>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </TableContainer>
+                            {c.nombreArchivo}
+                          </TableCell>
+                          <TableCell>{formatFecha(c.procesadoEn)}</TableCell>
+                          <TableCell align="center">
+                            <IconButton
+                              size="small"
+                              aria-label="Ver PDF"
+                              title="Ver PDF"
+                              onClick={() => handleVerPdf(c)}
+                            >
+                              <VisibilityIcon fontSize="small" />
+                            </IconButton>
+                            <IconButton
+                              size="small"
+                              aria-label="Descargar PDF"
+                              title="Descargar PDF"
+                              onClick={() => window.open(urlArchivo(c.id, true), "_blank")}
+                            >
+                              <DownloadIcon fontSize="small" />
+                            </IconButton>
+                            <IconButton
+                              size="small"
+                              title="Eliminar"
+                              aria-label="Eliminar contrato"
+                              onClick={() => handleEliminar(c.id)}
+                              color="error"
+                            >
+                              <DeleteOutlineIcon fontSize="small" />
+                            </IconButton>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+              <TablePagination
+                component="div"
+                count={contratos.length}
+                page={pagina}
+                onPageChange={handleChangePage}
+                rowsPerPage={filasPorPagina}
+                onRowsPerPageChange={handleChangeRowsPerPage}
+                rowsPerPageOptions={[...FILAS_POR_PAGINA]}
+                labelRowsPerPage="Filas por página"
+              />
+            </Paper>
           )}
         </>
       )}
