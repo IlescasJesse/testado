@@ -89,4 +89,4 @@ echo   Cierra ESTA ventana para detener la WEB.
 echo   Cierra la ventana TESTADO-API para detener la API.
 echo.
 
-cd /d %~dp0\apps\web && npx next start -p 3010
+cd /d %~dp0\apps\web && set ADMIN_PASSWORD=testado2026 && npx next start -p 3010
