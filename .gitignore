@@ -9,4 +9,6 @@ dist/
 .env
 .next/
 *.tsbuildinfo
+.env.local
+.env*.local
 .superpowers/

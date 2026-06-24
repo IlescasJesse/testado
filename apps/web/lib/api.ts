@@ -62,7 +62,12 @@ export async function apiPost<T>(path: string, body: unknown): Promise<{ status:
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
-  const data = await res.json() as T;
+  const contentType = res.headers.get("content-type") ?? "";
+  if (!contentType.includes("application/json")) {
+    const text = await res.text();
+    throw new Error(`POST ${path} → ${res.status}: ${text}`);
+  }
+  const data = (await res.json()) as T;
   return { status: res.status, data };
 }
 

@@ -448,7 +448,7 @@ export default function HomePage() {
       {/* Duplicados dialog */}
       <Dialog
         open={showDuplicadosDialog}
-        onClose={() => {}}
+        onClose={handleReset}
         maxWidth="sm"
         fullWidth
       >
@@ -475,6 +475,14 @@ export default function HomePage() {
           </Typography>
         </DialogContent>
         <DialogActions sx={{ flexDirection: "column", gap: 1, p: 2, alignItems: "stretch" }}>
+          <Button
+            variant="text"
+            color="inherit"
+            onClick={handleReset}
+            fullWidth
+          >
+            Cancelar
+          </Button>
           <Button
             variant="outlined"
             onClick={() => handleResolucionDuplicado("omitir")}
