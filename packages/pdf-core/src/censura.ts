@@ -32,18 +32,8 @@ import { detectarDatos } from "./ocr.js";
 import type { ResultadoOCR } from "./ocr.js";
 
 // ── Interfaces mínimas para libs sin tipos completos ──────────────────────────
-
-/** Módulo pdf-poppler */
-interface PopplerOpts {
-  format: string;
-  out_dir: string;
-  out_prefix: string;
-  page: number;
-  scale: number;
-}
-interface PopplerModule {
-  convert(pdfPath: string, opts: PopplerOpts): Promise<void>;
-}
+// Nota: pdf-poppler está tipado en types/pdf-poppler.d.ts — no se necesita
+// PopplerOpts ni PopplerModule locales. Se importa ConvertOptions del módulo.
 
 /** Módulo canvas */
 interface CanvasImage {
@@ -67,11 +57,6 @@ interface CanvasModule {
   registerFont(path: string, opts: { family: string }): void;
 }
 
-/** Módulo @pdf-lib/fontkit (registro en PDFDocument) */
-interface FontkitModule {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  [key: string]: unknown;
-}
 
 // ── Resultado de testarPdf ────────────────────────────────────────────────────
 
@@ -138,7 +123,7 @@ async function detectarRFCEnImagenConRecuadro(
   pdfBytes: Buffer,
   pageIndex: number,
 ): Promise<string | null> {
-  const poppler = (await import("pdf-poppler")) as PopplerModule;
+  const poppler = await import("pdf-poppler");
   const canvasMod = (await import("canvas")) as CanvasModule;
 
   const prefijo = `ocr_rfc_${Date.now()}_${Math.random().toString(36).slice(2)}`;
@@ -153,7 +138,7 @@ async function detectarRFCEnImagenConRecuadro(
   try {
     fs.writeFileSync(tempPdfPath, pdfBytes);
 
-    const opts: PopplerOpts = {
+    const opts: import("pdf-poppler").ConvertOptions = {
       format: "png",
       out_dir: os.tmpdir(),
       out_prefix: prefijo,
@@ -432,7 +417,7 @@ async function detectarYCensurarFirmaUltimaPagina(
   pdfDoc: import("pdf-lib").PDFDocument,
 ): Promise<void> {
   const { rgb } = await import("pdf-lib");
-  const poppler = (await import("pdf-poppler")) as PopplerModule;
+  const poppler = await import("pdf-poppler");
   const canvasMod = (await import("canvas")) as CanvasModule;
 
   const paginas = pdfDoc.getPages();
@@ -449,7 +434,7 @@ async function detectarYCensurarFirmaUltimaPagina(
   try {
     fs.writeFileSync(tempPdfPath, pdfBytes);
 
-    const opts: PopplerOpts = {
+    const opts: import("pdf-poppler").ConvertOptions = {
       format: "png",
       out_dir: os.tmpdir(),
       out_prefix: prefijo,
@@ -612,7 +597,7 @@ export async function testarPdf(
   input: Buffer,
 ): Promise<{ bytes: Buffer; rfc: string | null; nombre: string | null; fecha: Date | null }> {
   const { PDFDocument } = await import("pdf-lib");
-  const fontkit = (await import("@pdf-lib/fontkit")) as FontkitModule;
+  const fontkit = await import("@pdf-lib/fontkit");
 
   const pdfDoc = await PDFDocument.load(input);
   const paginas = pdfDoc.getPages();

@@ -51,19 +51,7 @@ interface TesseractModule {
   recognize(imgPath: string, config: TesseractConfig): Promise<string>;
 }
 
-/** Opciones que acepta pdf-poppler para conversión */
-interface PopplerOpts {
-  format: string;
-  out_dir: string;
-  out_prefix: string;
-  page: number;
-  scale: number;
-}
-
-/** Módulo pdf-poppler */
-interface PopplerModule {
-  convert(pdfPath: string, opts: PopplerOpts): Promise<void>;
-}
+// Nota: pdf-poppler está tipado en types/pdf-poppler.d.ts (ConvertOptions).
 
 // ── Parámetros opcionales de detectarDatos ────────────────────────────────────
 
@@ -265,12 +253,12 @@ export async function detectarDatos(
   // Importaciones dinámicas para que el módulo no explote si las libs no están
   // instaladas — los tests de contrato pueden hacer import estático con vitest.
   const tesseract = (await import("node-tesseract-ocr")) as TesseractModule;
-  const poppler = (await import("pdf-poppler")) as PopplerModule;
+  const poppler = await import("pdf-poppler");
 
   const tmpDir = os.tmpdir();
   const prefijo = `ocr_${Date.now()}_${Math.random().toString(36).slice(2)}`;
   const tempPdfPath = path.join(tmpDir, `${prefijo}.pdf`);
-  const popplerOpts: PopplerOpts = {
+  const popplerOpts: import("pdf-poppler").ConvertOptions = {
     format: "png",
     out_dir: tmpDir,
     out_prefix: prefijo,
