@@ -43,7 +43,7 @@ import type { ContratoDTO, ResumenTrimestre, ResumenDesbloqueo } from "@/lib/api
 import VisorPdf from "@/components/VisorPdf";
 
 const periodoLabel = (p: number): string =>
-  (["", "Enero–Marzo", "Abril–Junio", "Julio–Septiembre", "Octubre–Diciembre"] as const)[p] ??
+  (["", "Enero–Marzo", "Abril–Junio", "Julio–Septiembre", "Octubre–Noviembre", "Diciembre"] as const)[p] ??
   p.toString();
 
 interface DialogState {

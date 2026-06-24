@@ -132,11 +132,11 @@ router.post(
           !Number.isInteger(anio) ||
           !Number.isInteger(periodo) ||
           periodo < 1 ||
-          periodo > 4
+          periodo > 5
         ) {
           res.status(400).json({
             success: false,
-            message: "Los campos anio y periodo deben ser enteros válidos (periodo: 1–4).",
+            message: "Los campos anio y periodo deben ser enteros válidos (periodo: 1–5).",
           });
           return;
         }

@@ -1,7 +1,26 @@
 {
   "permissions": {
     "allow": [
-      "Bash(git -C \"C:\\\\Users\\\\jesse\\\\Documents\\\\TESTADO\\\\testado\" diff HEAD -- server.js)"
+      "Bash(git -C \"C:\\\\Users\\\\jesse\\\\Documents\\\\TESTADO\\\\testado\" diff HEAD -- server.js)",
+      "Bash(qpdf --version)",
+      "Read(//c/tmp/**)",
+      "Bash(qpdf --empty --pages /dev/null)",
+      "Bash(printf '%%PDF-1.4\\\\n1 *)",
+      "Bash(qpdf --encrypt \"\" F1N4NZ4S2025 256 --modify=none --print=full -- t.pdf t_enc.pdf)",
+      "Bash(qpdf --show-encryption t_enc.pdf)",
+      "Bash(find tested_Censurado -type f)",
+      "Bash(find . -iname \"*.pdf\" -not -path \"*/node_modules/*\")",
+      "Read(//c/Users/ilesm/**)",
+      "Read(//c/Users/ilesm/Documents/**)",
+      "Bash(git checkout *)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(npm install *)",
+      "Bash(npx tsc *)",
+      "Bash(npx vitest *)",
+      "Bash(git check-ignore *)",
+      "Bash(git *)",
+      "Bash(mysql -uroot testado -e \"SELECT estado, COUNT\\(*\\) AS n FROM Contrato WHERE eliminado=0 GROUP BY estado;\")"
     ]
   }
 }

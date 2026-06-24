@@ -3,7 +3,7 @@ export type EstadoProceso = "testado" | "duplicado" | "cache" | "error";
 
 export interface Trimestre {
   anio: number;
-  periodo: 1 | 2 | 3 | 4;
+  periodo: 1 | 2 | 3 | 4 | 5;
 }
 
 export interface ContratoDTO {

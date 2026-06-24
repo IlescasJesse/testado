@@ -317,7 +317,8 @@ export default function HomePage() {
                 <MenuItem value="1">T1 – Enero a Marzo</MenuItem>
                 <MenuItem value="2">T2 – Abril a Junio</MenuItem>
                 <MenuItem value="3">T3 – Julio a Septiembre</MenuItem>
-                <MenuItem value="4">T4 – Octubre a Diciembre</MenuItem>
+                <MenuItem value="4">T4 – Octubre a Noviembre</MenuItem>
+                <MenuItem value="5">T5 – Diciembre</MenuItem>
               </Select>
             </Grid>
           </Grid>

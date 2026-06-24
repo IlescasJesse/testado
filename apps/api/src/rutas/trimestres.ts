@@ -148,12 +148,12 @@ router.get("/:anio/:periodo/respaldo", async (req: Request, res: Response): Prom
       !Number.isInteger(periodo) ||
       isNaN(periodo) ||
       periodo < 1 ||
-      periodo > 4
+      periodo > 5
     ) {
       res.status(400).json({
         success: false,
         message:
-          "Los parámetros anio y periodo deben ser enteros válidos (periodo: 1–4).",
+          "Los parámetros anio y periodo deben ser enteros válidos (periodo: 1–5).",
       });
       return;
     }
