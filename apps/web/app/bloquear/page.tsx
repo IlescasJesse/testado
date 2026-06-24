@@ -157,10 +157,10 @@ export default function BloquearPage() {
       );
 
       if (result.status === 409) {
-        const errData = result.data as { success: false; message: string };
+        const errData = result.data as { success: false; message?: string };
+        const detail = errData.message ? ` — ${errData.message}` : "";
         setBloqueandoError(
-          errData.message ??
-            "qpdf no disponible en este servidor. No es posible bloquear contratos sin qpdf instalado."
+          `qpdf no disponible en este servidor. No es posible bloquear contratos sin qpdf instalado.${detail}`
         );
       } else {
         const resumen = result.data as ResumenBloqueo;
