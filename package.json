@@ -9,17 +9,23 @@
     "dev:api": "npm run dev -w @testado/api",
     "dev:web": "npm run dev -w @testado/web",
     "test": "vitest run",
-    "prisma:migrate": "prisma migrate dev"
+    "prisma:migrate": "prisma migrate dev",
+    "build:packages": "tsc -b packages/shared packages/pdf-core",
+    "build:api": "npm run build -w @testado/api",
+    "build:web": "npm run build -w @testado/web",
+    "build": "npm run build:packages && npm run build:api && npm run build:web",
+    "start:api": "npm run start -w @testado/api",
+    "start:web": "npm run start -w @testado/web",
+    "start": "concurrently --names \"API,WEB\" --prefix-colors \"cyan,magenta\" \"npm run start:api\" \"npm run start:web\""
   },
   "devDependencies": {
+    "@prisma/client": "^5.22.0",
     "@types/node": "^26.0.0",
     "@types/supertest": "^7.2.0",
-    "prisma": "^7.8.0",
+    "concurrently": "^10.0.3",
+    "prisma": "^5.22.0",
     "supertest": "^7.2.2",
     "typescript": "^5.4.0",
     "vitest": "^1.6.0"
-  },
-  "dependencies": {
-    "@prisma/client": "^7.8.0"
   }
 }

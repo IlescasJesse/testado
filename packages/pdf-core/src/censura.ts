@@ -597,13 +597,15 @@ export async function testarPdf(
   input: Buffer,
 ): Promise<{ bytes: Buffer; rfc: string | null; nombre: string | null; fecha: Date | null }> {
   const { PDFDocument } = await import("pdf-lib");
-  const fontkit = await import("@pdf-lib/fontkit");
+  const fontkitMod = await import("@pdf-lib/fontkit");
+  // En CJS compilado, import() devuelve el namespace; el objeto real está en .default
+  const fontkitInst = (fontkitMod as { default?: unknown }).default ?? fontkitMod;
 
   const pdfDoc = await PDFDocument.load(input);
   const paginas = pdfDoc.getPages();
 
   // Cargar fuente Montserrat (server.js líneas 896-900)
-  pdfDoc.registerFontkit(fontkit as Parameters<typeof pdfDoc.registerFontkit>[0]);
+  pdfDoc.registerFontkit(fontkitInst as Parameters<typeof pdfDoc.registerFontkit>[0]);
   const fontPath = resolverFuenteMontserrat();
   const montserratBytes = fs.readFileSync(fontPath);
   await pdfDoc.embedFont(montserratBytes);

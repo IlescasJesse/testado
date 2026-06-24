@@ -135,7 +135,7 @@ describe("POST /api/contratos/testar", () => {
 
     const respuesta = await request(app)
       .post("/api/contratos/testar")
-      .attach("archivos", Buffer.from("%PDF-1.4 prueba"), "contrato.pdf")
+      .attach("pdfs", Buffer.from("%PDF-1.4 prueba"), "contrato.pdf")
       .expect(200);
 
     expect(respuesta.body.success).toBe(true);
@@ -161,8 +161,8 @@ describe("POST /api/contratos/testar", () => {
 
     await request(app)
       .post("/api/contratos/testar")
-      .attach("archivos", Buffer.from("%PDF-1.4 a"), "a.pdf")
-      .attach("archivos", Buffer.from("%PDF-1.4 b"), "b.pdf")
+      .attach("pdfs", Buffer.from("%PDF-1.4 a"), "a.pdf")
+      .attach("pdfs", Buffer.from("%PDF-1.4 b"), "b.pdf")
       .expect(200);
 
     // Esperar el procesamiento en segundo plano (setImmediate)
@@ -179,7 +179,7 @@ describe("POST /api/contratos/testar", () => {
       .post("/api/contratos/testar")
       .field("anio", "2024")
       .field("periodo", "5")
-      .attach("archivos", Buffer.from("%PDF-1.4 test"), "test.pdf")
+      .attach("pdfs", Buffer.from("%PDF-1.4 test"), "test.pdf")
       .expect(400);
 
     expect(respuesta.body.success).toBe(false);
@@ -205,7 +205,7 @@ describe("GET /api/contratos/progreso", () => {
     // Primero crear el lote
     const postResp = await request(app)
       .post("/api/contratos/testar")
-      .attach("archivos", Buffer.from("%PDF-1.4 ok"), "ok.pdf")
+      .attach("pdfs", Buffer.from("%PDF-1.4 ok"), "ok.pdf")
       .expect(200);
 
     const { loteId } = postResp.body as { loteId: string };

@@ -101,7 +101,7 @@ function validarIds(ids: unknown): ids is number[] {
 
 router.post(
   "/testar",
-  upload.array("archivos"),
+  upload.array("pdfs"),
   async (req: Request, res: Response): Promise<void> => {
     try {
       const archivos = req.files as Express.Multer.File[] | undefined;
