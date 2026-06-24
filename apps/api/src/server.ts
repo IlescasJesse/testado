@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 import os from "os";
 import { Cola } from "./cola.js";
+import { router as rutasContratos } from "./rutas/contratos.js";
 
 // ---------------------------------------------------------------------------
 // Concurrencia global: usa todos los núcleos menos uno (mínimo 1)
@@ -21,6 +22,9 @@ app.use(express.json());
 app.get("/api/health", (_req, res) => {
   res.json({ ok: true });
 });
+
+// Rutas de contratos
+app.use("/api/contratos", rutasContratos);
 
 // ---------------------------------------------------------------------------
 // Inicio del servidor
