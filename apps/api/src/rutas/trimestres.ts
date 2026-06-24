@@ -158,11 +158,11 @@ router.get("/:anio/:periodo/respaldo", async (req: Request, res: Response): Prom
       return;
     }
 
-    // Consultar contratos BLOQUEADOS del trimestre (no eliminados)
+    // Consultar contratos del trimestre (bloqueados o desbloqueados, no eliminados)
     const contratos = await prisma.contrato.findMany({
       where: {
         eliminado: false,
-        estado: "BLOQUEADO",
+        estado: { in: ["BLOQUEADO", "DESBLOQUEADO"] },
         trimestre: { anio, periodo },
       },
       include: {
@@ -193,13 +193,13 @@ router.get("/:anio/:periodo/respaldo", async (req: Request, res: Response): Prom
     if (contratos.length === 0) {
       // ZIP vacío con LEEME.txt — el cliente recibe siempre un ZIP válido
       archive.append(
-        `No hay contratos BLOQUEADOS en el trimestre ${anio} T${periodo}.\n`,
+        `No hay contratos bloqueados o desbloqueados en el trimestre ${anio} T${periodo}.\n`,
         { name: "LEEME.txt" },
       );
     } else {
       // Agregar cada PDF bloqueado al ZIP
       const lineasManifiesto: string[] = [
-        `Manifiesto de respaldo — Trimestre ${anio} T${periodo}`,
+        `Manifiesto de respaldo — Trimestre ${anio} T${periodo} (bloqueados y desbloqueados)`,
         `Generado: ${new Date().toISOString()}`,
         "─────────────────────────────────────────",
       ];
