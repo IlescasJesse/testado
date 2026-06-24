@@ -8,4 +8,5 @@ recovery_testato*/
 dist/
 .env
 .next/
+*.tsbuildinfo
 .superpowers/
