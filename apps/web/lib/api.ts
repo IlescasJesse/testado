@@ -2,7 +2,7 @@ import type { ContratoDTO, Estado, ResumenLote, ResultadoProcesar, ProgresoLote,
 
 export type { ContratoDTO, Estado, ResumenLote, ResultadoProcesar, ProgresoLote, LoteIniciado, ResumenTrimestre, ResumenBloqueo, ResumenDesbloqueo };
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3011";
+const API_URL = "";
 
 export async function apiGet<T>(path: string): Promise<T> {
   const res = await fetch(`${API_URL}${path}`);

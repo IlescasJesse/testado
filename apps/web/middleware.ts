@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const rutasPublicas = ["/login", "/api/login"];
+const rutasPublicas = ["/login", "/api"];
 
 function noCache(res: NextResponse) {
   res.headers.set("Cache-Control", "no-cache, no-store, must-revalidate");

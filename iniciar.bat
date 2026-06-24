@@ -58,13 +58,12 @@ echo.
 
 REM Puertos fijos: API en 3011, Web en 3010
 set PORT=3011
-set NEXT_PUBLIC_API_URL=http://localhost:3011
 
 REM ─────────────────────────────────────────
 REM Levantar API en ventana separada
 REM ─────────────────────────────────────────
 echo Iniciando API (puerto %PORT%)...
-start "TESTADO-API" cmd /k "cd /d %~dp0 && set PORT=%PORT% && set NEXT_PUBLIC_API_URL=%NEXT_PUBLIC_API_URL% && node apps/api/dist/server.js"
+start "TESTADO-API" cmd /k "cd /d %~dp0 && set PORT=%PORT% && node apps/api/dist/server.js"
 
 REM Esperar a que la API arranque
 timeout /t 3 /nobreak >nul
@@ -79,11 +78,12 @@ echo   Sistema listo!
 echo ========================================
 echo.
 echo   Interfaz:  http://localhost:3010
-echo   API:       http://localhost:%PORT%
 echo.
 echo   Para acceso desde otros equipos en la red,
 echo   usa la IP de este equipo en lugar de localhost.
 echo   (Ejemplo: http://192.168.1.X:3010)
+echo   La API se accede a traves del mismo puerto,
+echo   no es necesario abrir el puerto 3011.
 echo.
 echo   Cierra ESTA ventana para detener la WEB.
 echo   Cierra la ventana TESTADO-API para detener la API.
