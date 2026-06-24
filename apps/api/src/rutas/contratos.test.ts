@@ -34,11 +34,30 @@ vi.mock("node:fs/promises", () => ({
     readFile: vi.fn().mockResolvedValue(Buffer.from("%PDF-1.4 mock")),
     writeFile: vi.fn().mockResolvedValue(undefined),
     mkdir: vi.fn().mockResolvedValue(undefined),
+    access: vi.fn().mockResolvedValue(undefined),
   },
   readFile: vi.fn().mockResolvedValue(Buffer.from("%PDF-1.4 mock")),
   writeFile: vi.fn().mockResolvedValue(undefined),
   mkdir: vi.fn().mockResolvedValue(undefined),
+  access: vi.fn().mockResolvedValue(undefined),
 }));
+
+// Mock node:fs (sync) para createReadStream usado en el endpoint /:id/archivo
+vi.mock("node:fs", async () => {
+  const { Readable } = await import("node:stream");
+  return {
+    default: {
+      createReadStream: vi.fn(() => {
+        const s = new Readable({ read() { this.push("%PDF-1.4 contenido"); this.push(null); } });
+        return s;
+      }),
+    },
+    createReadStream: vi.fn(() => {
+      const s = new Readable({ read() { this.push("%PDF-1.4 contenido"); this.push(null); } });
+      return s;
+    }),
+  };
+});
 
 vi.mock("@testado/pdf-core", () => ({
   qpdfDisponible: vi.fn(() => true),
@@ -62,6 +81,7 @@ vi.mock("../db.js", () => ({
     contrato: {
       findMany: vi.fn(),
       findUnique: vi.fn(),
+      findFirst: vi.fn(),
       update: vi.fn(),
     },
     empleado: { upsert: vi.fn() },
@@ -233,6 +253,9 @@ describe("GET /api/contratos", () => {
         id: 1,
         estado: "TESTADO",
         version: 1,
+        nombreArchivo: "contrato.pdf",
+        procesadoEn: new Date("2024-01-15T10:00:00Z"),
+        errorMsg: null,
         empleado: { rfc: "ABCD870101XY1", nombre: "JUAN PÉREZ" },
         trimestre: { anio: 2024, periodo: 1 },
       },
@@ -375,6 +398,84 @@ describe("POST /api/contratos/desbloquear", () => {
       data: { estado: string };
     };
     expect(updateArgs.data.estado).toBe("DESBLOQUEADO");
+  });
+});
+
+describe("GET /api/contratos/:id/archivo", () => {
+  it("responde 200 con Content-Type application/pdf en modo inline por defecto", async () => {
+    const app = crearApp();
+
+    mockContrato.findUnique.mockResolvedValueOnce({
+      id: 10,
+      eliminado: false,
+      rutaArchivo: "/fake/contrato.pdf",
+      empleado: { rfc: "AEMJ890328B87" },
+      trimestre: { anio: 2026, periodo: 2 },
+    });
+
+    const respuesta = await request(app)
+      .get("/api/contratos/10/archivo")
+      .expect(200);
+
+    expect(respuesta.headers["content-type"]).toMatch(/application\/pdf/);
+    expect(respuesta.headers["content-disposition"]).toMatch(/inline/);
+  });
+
+  it("usa Content-Disposition attachment con ?descargar=1", async () => {
+    const app = crearApp();
+
+    mockContrato.findUnique.mockResolvedValueOnce({
+      id: 11,
+      eliminado: false,
+      rutaArchivo: "/fake/contrato.pdf",
+      empleado: { rfc: "AEMJ890328B87" },
+      trimestre: { anio: 2026, periodo: 2 },
+    });
+
+    const respuesta = await request(app)
+      .get("/api/contratos/11/archivo?descargar=1")
+      .expect(200);
+
+    expect(respuesta.headers["content-disposition"]).toMatch(/attachment/);
+    expect(respuesta.headers["content-disposition"]).toMatch(/AEMJ890328B87_2026T2\.pdf/);
+  });
+
+  it("responde 404 si el contrato no existe", async () => {
+    const app = crearApp();
+    mockContrato.findUnique.mockResolvedValueOnce(null);
+
+    const respuesta = await request(app)
+      .get("/api/contratos/999/archivo")
+      .expect(404);
+
+    expect(respuesta.body.success).toBe(false);
+  });
+
+  it("responde 404 si el contrato está eliminado", async () => {
+    const app = crearApp();
+    mockContrato.findUnique.mockResolvedValueOnce({
+      id: 12,
+      eliminado: true,
+      rutaArchivo: "/fake/contrato.pdf",
+      empleado: { rfc: "AEMJ890328B87" },
+      trimestre: { anio: 2026, periodo: 2 },
+    });
+
+    const respuesta = await request(app)
+      .get("/api/contratos/12/archivo")
+      .expect(404);
+
+    expect(respuesta.body.success).toBe(false);
+  });
+
+  it("responde 400 si el id no es un entero válido", async () => {
+    const app = crearApp();
+
+    const respuesta = await request(app)
+      .get("/api/contratos/abc/archivo")
+      .expect(400);
+
+    expect(respuesta.body.success).toBe(false);
   });
 });
 

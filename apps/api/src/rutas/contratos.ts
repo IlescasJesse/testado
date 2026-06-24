@@ -35,6 +35,7 @@
 import { Router, Request, Response } from "express";
 import multer from "multer";
 import fs from "node:fs/promises";
+import fsSync from "node:fs";
 import { prisma } from "../db.js";
 import { procesarArchivo, type ResultadoProcesar } from "../servicios/procesarLote.js";
 import { colaGlobal } from "../server.js";
@@ -402,7 +403,82 @@ router.post("/desbloquear", async (req: Request, res: Response): Promise<void> =
   }
 });
 
-// ── 6. POST /:id/eliminar (soft delete) ───────────────────────────────────────
+// ── 6. GET /:id/archivo — ver o descargar el PDF censurado ───────────────────
+//
+// Por defecto sirve el PDF inline (para visor en navegador).
+// Con query ?descargar=1 usa Content-Disposition attachment con nombre legible.
+//
+// Respuestas:
+//   200: stream del PDF con Content-Type application/pdf
+//   400: id inválido
+//   404: contrato no encontrado / eliminado / archivo no existe en disco
+//   500: error inesperado al leer el archivo
+
+router.get("/:id/archivo", async (req: Request, res: Response): Promise<void> => {
+  try {
+    const idParam = req.params["id"];
+    const idRaw = parseInt(typeof idParam === "string" ? idParam : "", 10);
+
+    if (!Number.isInteger(idRaw) || idRaw <= 0) {
+      res.status(400).json({ success: false, message: "ID de contrato inválido." });
+      return;
+    }
+
+    const contrato = await prisma.contrato.findUnique({
+      where: { id: idRaw },
+      include: {
+        empleado: { select: { rfc: true } },
+        trimestre: { select: { anio: true, periodo: true } },
+      },
+    });
+
+    if (contrato === null || contrato.eliminado) {
+      res.status(404).json({ success: false, message: "Contrato no encontrado." });
+      return;
+    }
+
+    // Verificar que el archivo existe en disco
+    try {
+      await fs.access(contrato.rutaArchivo);
+    } catch {
+      res.status(404).json({
+        success: false,
+        message: "El archivo PDF no se encontró en disco.",
+      });
+      return;
+    }
+
+    const descargar = req.query["descargar"] === "1";
+
+    // Nombre de descarga legible: RFC_AAAATn.pdf
+    const rfc = contrato.empleado.rfc.replace(/[^A-Z0-9\-_]/gi, "_");
+    const nombreDescarga = `${rfc}_${contrato.trimestre.anio}T${contrato.trimestre.periodo}.pdf`;
+
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader(
+      "Content-Disposition",
+      descargar
+        ? `attachment; filename="${nombreDescarga}"`
+        : `inline; filename="${nombreDescarga}"`,
+    );
+
+    // Transmitir el archivo
+    const stream = fsSync.createReadStream(contrato.rutaArchivo);
+    stream.pipe(res);
+
+    stream.on("error", (err: Error) => {
+      console.error(`[contratos] Error al transmitir PDF id=${idRaw}: ${err.message}`);
+      if (!res.headersSent) {
+        res.status(500).json({ success: false, message: "Error al leer el archivo." });
+      }
+    });
+  } catch (err: unknown) {
+    const mensaje = err instanceof Error ? err.message : "Error interno del servidor.";
+    res.status(500).json({ success: false, message: mensaje });
+  }
+});
+
+// ── 7. POST /:id/eliminar (soft delete) ───────────────────────────────────────
 
 router.post("/:id/eliminar", async (req: Request, res: Response): Promise<void> => {
   try {
