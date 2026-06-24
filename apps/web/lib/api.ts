@@ -86,3 +86,7 @@ export async function apiUpload<T>(path: string, formData: FormData): Promise<T>
 export function urlRespaldo(anio: number, periodo: number): string {
   return `${API_URL}/api/trimestres/${anio}/${periodo}/respaldo`;
 }
+
+export function urlArchivo(id: number, descargar = false): string {
+  return `${API_URL}/api/contratos/${id}/archivo${descargar ? "?descargar=1" : ""}`;
+}

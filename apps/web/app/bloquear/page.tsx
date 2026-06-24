@@ -28,8 +28,11 @@ import ErrorOutlineIcon from "@mui/icons-material/ErrorOutline";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import ListAltIcon from "@mui/icons-material/ListAlt";
-import { apiGet, apiPost } from "@/lib/api";
+import VisibilityIcon from "@mui/icons-material/Visibility";
+import DownloadIcon from "@mui/icons-material/Download";
+import { apiGet, apiPost, urlArchivo } from "@/lib/api";
 import type { ContratoDTO, Estado, ResumenBloqueo } from "@/lib/api";
+import VisorPdf from "@/components/VisorPdf";
 
 type TabIndex = 0 | 1 | 2 | 3;
 
@@ -71,6 +74,8 @@ export default function BloquearPage() {
   const [bloqueandoError, setBloqueandoError] = useState<string | null>(null);
   const [bloqueandoSuccess, setBloqueandoSuccess] = useState<string | null>(null);
   const [bloqueando, setBloqueando] = useState(false);
+  const [visorId, setVisorId] = useState<number | null>(null);
+  const [visorTitulo, setVisorTitulo] = useState<string>("");
 
   const loadContratos = useCallback(async (tabIdx: TabIndex) => {
     setLoading(true);
@@ -126,6 +131,11 @@ export default function BloquearPage() {
       }
       return next;
     });
+  };
+
+  const handleVerPdf = (c: ContratoDTO) => {
+    setVisorTitulo(`${c.rfc} — ${c.nombre ?? c.nombreArchivo}`);
+    setVisorId(c.id);
   };
 
   const handleEliminar = async (id: number) => {
@@ -246,6 +256,16 @@ export default function BloquearPage() {
         </Box>
       )}
 
+      {/* Visor PDF */}
+      {visorId !== null && (
+        <VisorPdf
+          open={visorId !== null}
+          id={visorId}
+          titulo={visorTitulo}
+          onClose={() => setVisorId(null)}
+        />
+      )}
+
       {/* Table */}
       {!loading && (
         <>
@@ -301,7 +321,24 @@ export default function BloquearPage() {
                         <TableCell align="center">
                           <IconButton
                             size="small"
+                            aria-label="Ver PDF"
+                            title="Ver PDF"
+                            onClick={() => handleVerPdf(c)}
+                          >
+                            <VisibilityIcon fontSize="small" />
+                          </IconButton>
+                          <IconButton
+                            size="small"
+                            aria-label="Descargar PDF"
+                            title="Descargar PDF"
+                            onClick={() => window.open(urlArchivo(c.id, true), "_blank")}
+                          >
+                            <DownloadIcon fontSize="small" />
+                          </IconButton>
+                          <IconButton
+                            size="small"
                             title="Eliminar"
+                            aria-label="Eliminar contrato"
                             onClick={() => handleEliminar(c.id)}
                             color="error"
                           >

@@ -15,11 +15,13 @@ import {
   DialogContent,
   DialogTitle,
   Grid,
+  IconButton,
   List,
   ListItem,
   ListItemIcon,
   ListItemText,
   TextField,
+  Tooltip,
   Typography,
 } from "@mui/material";
 import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
@@ -29,12 +31,16 @@ import LockOpenIcon from "@mui/icons-material/LockOpen";
 import ErrorOutlineIcon from "@mui/icons-material/ErrorOutline";
 import ArchiveIcon from "@mui/icons-material/Archive";
 import RefreshIcon from "@mui/icons-material/Refresh";
+import VisibilityIcon from "@mui/icons-material/Visibility";
+import DownloadIcon from "@mui/icons-material/Download";
 import {
   apiGet,
   apiPost,
   urlRespaldo,
+  urlArchivo,
 } from "@/lib/api";
 import type { ContratoDTO, ResumenTrimestre, ResumenDesbloqueo } from "@/lib/api";
+import VisorPdf from "@/components/VisorPdf";
 
 const periodoLabel = (p: number): string =>
   (["", "Enero–Marzo", "Abril–Junio", "Julio–Septiembre", "Octubre–Diciembre"] as const)[p] ??
@@ -60,6 +66,8 @@ export default function TrimestresPage() {
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [dialogSuccess, setDialogSuccess] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [visorId, setVisorId] = useState<number | null>(null);
+  const [visorTitulo, setVisorTitulo] = useState<string>("");
 
   const cargarTrimestres = useCallback(async () => {
     setLoading(true);
@@ -291,6 +299,16 @@ export default function TrimestresPage() {
         </Grid>
       )}
 
+      {/* Visor PDF */}
+      {visorId !== null && (
+        <VisorPdf
+          open={visorId !== null}
+          id={visorId}
+          titulo={visorTitulo}
+          onClose={() => setVisorId(null)}
+        />
+      )}
+
       {/* Desbloquear Dialog */}
       <Dialog
         open={dialogState?.open ?? false}
@@ -339,6 +357,31 @@ export default function TrimestresPage() {
                         key={c.id}
                         disableGutters
                         sx={{ borderBottom: "1px solid", borderColor: "divider" }}
+                        secondaryAction={
+                          <Box sx={{ display: "flex", gap: 0.5 }}>
+                            <Tooltip title="Ver PDF">
+                              <IconButton
+                                size="small"
+                                aria-label="Ver PDF"
+                                onClick={() => {
+                                  setVisorTitulo(`${c.rfc} — ${c.nombre ?? c.nombreArchivo}`);
+                                  setVisorId(c.id);
+                                }}
+                              >
+                                <VisibilityIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                            <Tooltip title="Descargar PDF">
+                              <IconButton
+                                size="small"
+                                aria-label="Descargar PDF"
+                                onClick={() => window.open(urlArchivo(c.id, true), "_blank")}
+                              >
+                                <DownloadIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          </Box>
+                        }
                       >
                         <ListItemIcon sx={{ minWidth: 36 }}>
                           <Checkbox
