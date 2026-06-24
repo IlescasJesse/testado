@@ -3,7 +3,7 @@
 export { calcularHash } from "./hash.js";
 export { trimestreDeFecha } from "./trimestre.js";
 
-export { detectarDatos } from "./ocr.js";
+export { detectarDatos, extraerFecha, extraerNombre, nombreDesdeArchivo } from "./ocr.js";
 export type { ResultadoOCR, OpcionesOCR } from "./ocr.js";
 
 export { testarPdf } from "./censura.js";

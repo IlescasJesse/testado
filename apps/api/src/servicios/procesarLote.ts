@@ -36,8 +36,18 @@
 
 import path from "node:path";
 import fs from "node:fs/promises";
-import { calcularHash, trimestreDeFecha, testarPdf } from "@testado/pdf-core";
+import { calcularHash, trimestreDeFecha, testarPdf, nombreDesdeArchivo } from "@testado/pdf-core";
 import { prisma } from "../db.js";
+
+/** Elimina acentos/diacríticos para comparación insensible a acentos. */
+function normalizarParaComparacion(s: string): string {
+  return s
+    .toUpperCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
 
 // ── Ruta base de salida ───────────────────────────────────────────────────────
 // apps/api/src/servicios/ → sube 4 niveles → raíz del monorepo
@@ -142,9 +152,44 @@ export async function procesarArchivo(
 
     // ── 5. RFC efectivo y nombre de empleado ──────────────────────────────────
     const rfcEfectivo = rfcDetectado ?? pseudoRfc(hash);
-    // Si no hay nombre detectado por OCR, usar el nombre del archivo sin extensión
-    const nombreEfectivo =
-      nombreDetectado ?? path.basename(nombreArchivo, path.extname(nombreArchivo));
+
+    // Cross-check: nombre OCR vs. nombre del archivo.
+    //
+    // El nombre del archivo es considerado fiable (el usuario lo nombra).
+    // Si el OCR detectó un nombre, se compara (normalizado) con el del archivo:
+    //   - Si coinciden (mismas palabras, independiente del orden) → usar OCR.
+    //   - Si difieren → priorizar el nombre del ARCHIVO y registrar advertencia.
+    //   - Si OCR no detectó nada → usar el nombre del archivo (nunca vacío).
+    const nombreArchivonorm = nombreDesdeArchivo(nombreArchivo);
+    let nombreEfectivo: string;
+
+    if (nombreDetectado !== null) {
+      const ocrNorm = nombreDetectado.toUpperCase().replace(/\s+/g, " ").trim();
+      // Normalizar sin acentos para comparación laxa (insensible a diacríticos)
+      const ocrSinAcentos = normalizarParaComparacion(ocrNorm);
+      const archivoSinAcentos = normalizarParaComparacion(nombreArchivonorm);
+      const palabrasOcr = new Set(ocrSinAcentos.split(/\s+/));
+      const palabrasArchivo = new Set(archivoSinAcentos.split(/\s+/));
+      // Coincidencia laxa: todas las palabras del nombre más corto están en el más largo
+      const minPalabras = Math.min(palabrasOcr.size, palabrasArchivo.size);
+      const coincidencias = [...palabrasOcr].filter((p) => palabrasArchivo.has(p)).length;
+      const coincide = minPalabras > 0 && coincidencias >= minPalabras;
+
+      if (coincide) {
+        // OCR y archivo coinciden: usar OCR (fuente directa del documento)
+        nombreEfectivo = ocrNorm;
+      } else {
+        // Difieren: priorizar nombre del archivo (más confiable) y advertir
+        console.warn(
+          `[procesarLote] Nombre OCR "${ocrNorm}" difiere del archivo "${nombreArchivonorm}". ` +
+            `Se usa nombre del archivo.`,
+        );
+        nombreEfectivo = nombreArchivonorm;
+      }
+    } else {
+      // Sin OCR: nombre del archivo como fallback garantizado
+      nombreEfectivo = nombreArchivonorm;
+    }
 
     // Upsert Empleado: crear si no existe; actualizar nombre si se detectó uno nuevo
     const empleado = await prisma.empleado.upsert({

@@ -48,6 +48,12 @@ vi.mock("@testado/pdf-core", () => ({
     nombre: "JUAN PÉREZ LÓPEZ",
     fecha: new Date(2024, 2, 15), // 15 mar 2024 → T1 2024
   })),
+  // Replica lógica real: quita extensión, normaliza, devuelve en mayúsculas
+  nombreDesdeArchivo: vi.fn((nombreArchivo: string) => {
+    const { extname, basename } = require("node:path");
+    const sinExt = basename(nombreArchivo, extname(nombreArchivo));
+    return sinExt.replace(/\s+/g, " ").trim().toUpperCase();
+  }),
 }));
 
 vi.mock("../db.js", () => ({
@@ -186,7 +192,11 @@ describe("procesarArchivo", () => {
       mockContrato.findMany.mockResolvedValueOnce([]);
       mockContrato.create.mockResolvedValueOnce({ ...CONTRATO_MOCK, id: 99 });
 
-      const resultado = await procesarArchivo(BUF_PRUEBA, NOMBRE_ARCHIVO);
+      // Usamos un nombre de archivo que coincida con el OCR para que el cross-check
+      // no rechace el nombre detectado ("JUAN PÉREZ LÓPEZ").
+      // La coincidencia laxa verifica que todas las palabras del más corto estén en el otro.
+      // Aquí el nombre del archivo es "JUAN PEREZ LOPEZ.pdf" → coincide con OCR.
+      const resultado = await procesarArchivo(BUF_PRUEBA, "JUAN PEREZ LOPEZ.pdf");
 
       // Debe haber llamado a testarPdf una vez con el buffer correcto
       expect(testarPdf).toHaveBeenCalledOnce();
@@ -200,7 +210,7 @@ describe("procesarArchivo", () => {
       expect(callArgs.data.version).toBe(1);
       expect(callArgs.data.estado).toBe("TESTADO");
 
-      // Resultado correcto
+      // Resultado correcto — nombre viene del OCR (coincide con el archivo)
       expect(resultado.estado).toBe("testado");
       expect(resultado.contratoId).toBe(99);
       expect(resultado.rfc).toBe("ABCD870101XY1");
@@ -354,8 +364,8 @@ describe("procesarArchivo", () => {
       };
       expect(upsertArgs.where.rfc).toMatch(/^SINRFC-/);
       expect(upsertArgs.create.rfc).toMatch(/^SINRFC-/);
-      // Nombre fallback = nombre del archivo sin extensión
-      expect(upsertArgs.create.nombre).toBe("contrato_2024");
+      // Nombre fallback = nombre del archivo sin extensión, en mayúsculas
+      expect(upsertArgs.create.nombre).toBe("CONTRATO_2024");
     });
   });
 
