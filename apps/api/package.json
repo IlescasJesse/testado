@@ -1,0 +1,26 @@
+{
+  "name": "@testado/api",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "ts-node --esm src/server.ts",
+    "start": "node dist/server.js"
+  },
+  "dependencies": {
+    "@prisma/client": "*",
+    "archiver": "^7.0.1",
+    "cors": "^2.8.6",
+    "dotenv": "^16.0.0",
+    "express": "^5.2.1",
+    "multer": "^2.2.0"
+  },
+  "devDependencies": {
+    "@types/archiver": "^8.0.0",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/multer": "^2.1.0"
+  }
+}

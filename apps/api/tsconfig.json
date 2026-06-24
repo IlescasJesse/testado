@@ -1,0 +1,20 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "rootDir": "src",
+    "types": ["node"],
+    "paths": {
+      "@testado/shared": ["../../packages/shared/dist/index.d.ts"],
+      "@testado/shared/*": ["../../packages/shared/dist/*"],
+      "@testado/pdf-core": ["../../packages/pdf-core/dist/index.d.ts"],
+      "@testado/pdf-core/*": ["../../packages/pdf-core/dist/*"]
+    }
+  },
+  "references": [
+    { "path": "../../packages/shared" },
+    { "path": "../../packages/pdf-core" }
+  ],
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist"]
+}

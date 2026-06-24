@@ -1,5 +1,14 @@
 node_modules/
+contratos/
+tested_Censurado/
 temp_uploads/
 temp_umploads/
 recovery_testado*/
 recovery_testato*/
+dist/
+.env
+.next/
+*.tsbuildinfo
+.env.local
+.env*.local
+.superpowers/

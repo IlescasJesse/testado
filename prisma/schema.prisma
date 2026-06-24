@@ -1,0 +1,60 @@
+// Prisma schema — testado monorepo
+// Datasource: MySQL (MariaDB compatible)
+// Decisiones de tipos:
+//   - rutaArchivo: @db.VarChar(500) — VARCHAR(191) puede ser corto para rutas absolutas en Windows
+//   - errorMsg: @db.Text — mensajes de error son de longitud variable e impredecible
+//   - Resto de String: VARCHAR(191) (default de Prisma con MySQL)
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Empleado {
+  id        Int        @id @default(autoincrement())
+  rfc       String     @unique
+  nombre    String?
+  contratos Contrato[]
+}
+
+model Trimestre {
+  id        Int        @id @default(autoincrement())
+  anio      Int
+  periodo   Int        // 1=Ene-Mar, 2=Abr-Jun, 3=Jul-Sep, 4=Oct-Dic
+  contratos Contrato[]
+
+  @@unique([anio, periodo])
+}
+
+model Contrato {
+  id            Int       @id @default(autoincrement())
+  empleadoId    Int
+  trimestreId   Int
+  hash          String
+  nombreArchivo String
+  rutaArchivo   String    @db.VarChar(500)
+  estado        Estado    @default(TESTADO)
+  version       Int       @default(1)
+  rfcDetectado  String?
+  fechaContrato DateTime?
+  procesadoEn   DateTime  @default(now())
+  bloqueadoEn   DateTime?
+  errorMsg      String?   @db.Text
+  eliminado     Boolean   @default(false)
+  empleado      Empleado  @relation(fields: [empleadoId], references: [id])
+  trimestre     Trimestre @relation(fields: [trimestreId], references: [id])
+
+  @@unique([empleadoId, trimestreId, version])
+  @@index([hash])
+}
+
+enum Estado {
+  TESTADO
+  BLOQUEADO
+  DESBLOQUEADO
+  ERROR
+}
