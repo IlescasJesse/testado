@@ -104,22 +104,32 @@ export default function BloquearPage() {
     setTab(newValue as TabIndex);
   };
 
-  const testadosIds = contratos
-    .filter((c) => c.estado === "TESTADO")
-    .map((c) => c.id);
+  // Bloqueables = recién testados o desbloqueados (se pueden cifrar / re-cifrar).
+  const ESTADOS_BLOQUEABLES: Estado[] = ["TESTADO", "DESBLOQUEADO"];
+  const esBloqueable = (c: ContratoDTO) => ESTADOS_BLOQUEABLES.includes(c.estado);
 
-  const allTestadosSelected =
-    testadosIds.length > 0 && testadosIds.every((id) => selected.has(id));
-  const someTestadosSelected =
-    testadosIds.some((id) => selected.has(id)) && !allTestadosSelected;
+  const bloqueablesIds = contratos.filter(esBloqueable).map((c) => c.id);
+
+  const allBloqueablesSelected =
+    bloqueablesIds.length > 0 && bloqueablesIds.every((id) => selected.has(id));
+  const someBloqueablesSelected =
+    bloqueablesIds.some((id) => selected.has(id)) && !allBloqueablesSelected;
 
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      setSelected(new Set<number>(testadosIds));
+      setSelected(new Set<number>(bloqueablesIds));
     } else {
       setSelected(new Set<number>());
     }
   };
+
+  // Desglose del contador cuando hay mezcla de estados seleccionados.
+  const selTestados = contratos.filter(
+    (c) => c.estado === "TESTADO" && selected.has(c.id),
+  ).length;
+  const selDesbloqueados = contratos.filter(
+    (c) => c.estado === "DESBLOQUEADO" && selected.has(c.id),
+  ).length;
 
   const handleSelectRow = (id: number, checked: boolean) => {
     setSelected((prev) => {
@@ -230,6 +240,9 @@ export default function BloquearPage() {
       <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 2 }}>
         <Typography variant="body2" color="text.secondary">
           {selected.size} seleccionados
+          {selected.size > 0 && selTestados > 0 && selDesbloqueados > 0
+            ? ` (${selTestados} testados, ${selDesbloqueados} desbloqueados)`
+            : ""}
         </Typography>
         <Button
           variant="contained"
@@ -280,10 +293,10 @@ export default function BloquearPage() {
                   <TableRow>
                     <TableCell padding="checkbox">
                       <Checkbox
-                        checked={allTestadosSelected}
-                        indeterminate={someTestadosSelected}
+                        checked={allBloqueablesSelected}
+                        indeterminate={someBloqueablesSelected}
                         onChange={(e) => handleSelectAll(e.target.checked)}
-                        disabled={testadosIds.length === 0}
+                        disabled={bloqueablesIds.length === 0}
                       />
                     </TableCell>
                     <TableCell>RFC</TableCell>
@@ -297,14 +310,13 @@ export default function BloquearPage() {
                 </TableHead>
                 <TableBody>
                   {contratos.map((c) => {
-                    const isTestado = c.estado === "TESTADO";
                     const isChecked = selected.has(c.id);
                     return (
                       <TableRow key={c.id} hover selected={isChecked}>
                         <TableCell padding="checkbox">
                           <Checkbox
                             checked={isChecked}
-                            disabled={!isTestado}
+                            disabled={!esBloqueable(c)}
                             onChange={(e) => handleSelectRow(c.id, e.target.checked)}
                           />
                         </TableCell>

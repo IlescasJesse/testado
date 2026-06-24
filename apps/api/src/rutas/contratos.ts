@@ -304,6 +304,17 @@ router.post("/bloquear", async (req: Request, res: Response): Promise<void> => {
           continue;
         }
 
+        // Salvaguarda: solo se cifra lo que está testado o desbloqueado.
+        // Re-cifrar un BLOQUEADO aplicaría qpdf sobre un PDF ya cifrado y lo
+        // corrompería; un ERROR no tiene un PDF censurado válido.
+        if (contrato.estado !== "TESTADO" && contrato.estado !== "DESBLOQUEADO") {
+          errores.push({
+            id,
+            mensaje: `Estado '${contrato.estado}' no bloqueable (solo TESTADO o DESBLOQUEADO).`,
+          });
+          continue;
+        }
+
         const bytes = await fs.readFile(contrato.rutaArchivo);
         const cifrado = bloquear(bytes, ownerPwd);
         await fs.writeFile(contrato.rutaArchivo, cifrado);
