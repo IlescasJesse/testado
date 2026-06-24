@@ -34,7 +34,7 @@ app.use("/api/trimestres", rutasTrimestres);
 // ---------------------------------------------------------------------------
 // Inicio del servidor
 // ---------------------------------------------------------------------------
-const PORT = parseInt(process.env["PORT"] ?? "3001", 10);
+const PORT = parseInt(process.env["PORT"] ?? "3011", 10);
 
 app.listen(PORT, "0.0.0.0", () => {
   const interfaces = os.networkInterfaces();

@@ -37,6 +37,7 @@
 import path from "node:path";
 import fs from "node:fs/promises";
 import { calcularHash, trimestreDeFecha, testarPdf, nombreDesdeArchivo } from "@testado/pdf-core";
+import type { ResultadoProcesar } from "@testado/shared";
 import { prisma } from "../db.js";
 
 /** Elimina acentos/diacríticos para comparación insensible a acentos. */
@@ -60,16 +61,6 @@ export interface OpcionesProcesar {
   trimestre?: { anio: number; periodo: number };
   /** Qué hacer si ya existe un contrato activo para ese empleado+trimestre. */
   resolucionDuplicado?: "omitir" | "reemplazar" | "version";
-}
-
-export interface ResultadoProcesar {
-  estado: "testado" | "duplicado" | "cache" | "error";
-  contratoId?: number;
-  rfc?: string | null;
-  nombre?: string | null;
-  trimestre?: { anio: number; periodo: number };
-  version?: number;
-  mensaje?: string;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

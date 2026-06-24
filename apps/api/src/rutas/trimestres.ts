@@ -28,6 +28,7 @@ import { Router, Request, Response } from "express";
 // Se importa como namespace y se hace el cast mínimo necesario.
 import * as archiverNs from "archiver";
 import type { Archiver, ArchiverOptions } from "archiver";
+import type { ResumenTrimestre } from "@testado/shared";
 import fs from "node:fs";
 import { prisma } from "../db.js";
 
@@ -46,17 +47,6 @@ interface GrupoContrato {
   trimestreId: number;
   estado: "TESTADO" | "BLOQUEADO" | "DESBLOQUEADO" | "ERROR";
   _count: { _all: number };
-}
-
-/** Forma de cada trimestre devuelto por GET / */
-interface ResumenTrimestre {
-  anio: number;
-  periodo: number;
-  total: number;
-  testados: number;
-  bloqueados: number;
-  desbloqueados: number;
-  errores: number;
 }
 
 // ── 1. GET / — Lista trimestres con conteos por estado ────────────────────────

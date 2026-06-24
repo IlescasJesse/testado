@@ -10,7 +10,7 @@
     "start": "node dist/server.js"
   },
   "dependencies": {
-    "@prisma/client": "*",
+    "@prisma/client": "^5.22.0",
     "archiver": "^7.0.1",
     "cors": "^2.8.6",
     "dotenv": "^16.0.0",

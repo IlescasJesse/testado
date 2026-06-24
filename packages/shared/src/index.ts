@@ -1,4 +1,5 @@
 export type Estado = "TESTADO" | "BLOQUEADO" | "DESBLOQUEADO" | "ERROR";
+export type EstadoProceso = "testado" | "duplicado" | "cache" | "error";
 
 export interface Trimestre {
   anio: number;
@@ -23,4 +24,58 @@ export interface ResumenLote {
   testados: number;
   errores: number;
   duplicados: number;
+}
+
+// ── Procesamiento de lotes ──────────────────────────────────────────────────────
+
+export interface ResultadoProcesar {
+  estado: EstadoProceso;
+  contratoId?: number;
+  rfc?: string | null;
+  nombre?: string | null;
+  trimestre?: { anio: number; periodo: number };
+  version?: number;
+  mensaje?: string;
+}
+
+export interface ProgresoLote {
+  total: number;
+  hechos: ResultadoProcesar[];
+  completado: boolean;
+}
+
+export interface LoteIniciado {
+  success: boolean;
+  loteId: string;
+  total: number;
+  processing: boolean;
+}
+
+// ── Trimestres ──────────────────────────────────────────────────────────────────
+
+export interface ResumenTrimestre {
+  anio: number;
+  periodo: number;
+  total: number;
+  testados: number;
+  bloqueados: number;
+  desbloqueados: number;
+  errores: number;
+}
+
+// ── Bloqueo/Desbloqueo ──────────────────────────────────────────────────────────
+
+export interface ErrorBloqueo {
+  id: number;
+  mensaje: string;
+}
+
+export interface ResumenBloqueo {
+  bloqueados: number;
+  errores: ErrorBloqueo[];
+}
+
+export interface ResumenDesbloqueo {
+  desbloqueados?: number;
+  errores?: ErrorBloqueo[];
 }

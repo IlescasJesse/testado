@@ -37,7 +37,8 @@ import multer from "multer";
 import fs from "node:fs/promises";
 import fsSync from "node:fs";
 import { prisma } from "../db.js";
-import { procesarArchivo, type ResultadoProcesar } from "../servicios/procesarLote.js";
+import type { ResultadoProcesar } from "@testado/shared";
+import { procesarArchivo } from "../servicios/procesarLote.js";
 import { colaGlobal } from "../server.js";
 import { qpdfDisponible, bloquear, desbloquear } from "@testado/pdf-core";
 

@@ -50,26 +50,15 @@ if errorlevel 1 (
 echo OK: Compilacion exitosa.
 
 REM ─────────────────────────────────────────
-REM 4. Detectar puerto para la API
+REM 4. Configurar puertos
 REM ─────────────────────────────────────────
 echo.
 echo [4/4] Iniciando servidores...
 echo.
 
-REM Verificar si el puerto 3001 esta libre (legacy server.js puede ocuparlo)
-netstat -an | findstr ":3001 " | findstr "LISTENING" >nul 2>&1
-if not errorlevel 1 (
-    echo AVISO: Puerto 3001 ocupado por otro proceso ^(server.js legacy^).
-    echo Usando puerto 3010 para la API nueva.
-    echo La interfaz web estara en http://localhost:3000
-    echo.
-    set PORT=3010
-    set NEXT_PUBLIC_API_URL=http://localhost:3010
-) else (
-    echo Puerto 3001 libre. Usando puerto 3001 para la API.
-    echo.
-    set PORT=3001
-)
+REM Puertos fijos: API en 3011, Web en 3010
+set PORT=3011
+set NEXT_PUBLIC_API_URL=http://localhost:3011
 
 REM ─────────────────────────────────────────
 REM Levantar API en ventana separada
@@ -83,21 +72,21 @@ timeout /t 3 /nobreak >nul
 REM ─────────────────────────────────────────
 REM Levantar Web en esta ventana
 REM ─────────────────────────────────────────
-echo Iniciando interfaz web (puerto 3000)...
+echo Iniciando interfaz web (puerto 3010)...
 echo.
 echo ========================================
 echo   Sistema listo!
 echo ========================================
 echo.
-echo   Interfaz:  http://localhost:3000
+echo   Interfaz:  http://localhost:3010
 echo   API:       http://localhost:%PORT%
 echo.
 echo   Para acceso desde otros equipos en la red,
 echo   usa la IP de este equipo en lugar de localhost.
-echo   (Ejemplo: http://192.168.1.X:3000)
+echo   (Ejemplo: http://192.168.1.X:3010)
 echo.
 echo   Cierra ESTA ventana para detener la WEB.
 echo   Cierra la ventana TESTADO-API para detener la API.
 echo.
 
-cd /d %~dp0\apps\web && npx next start
+cd /d %~dp0\apps\web && npx next start -p 3010
