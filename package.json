@@ -16,7 +16,8 @@
     "build": "npm run build:packages && npm run build:api && npm run build:web",
     "start:api": "npm run start -w @testado/api",
     "start:web": "npm run start -w @testado/web",
-    "start": "concurrently --names \"API,WEB\" --prefix-colors \"cyan,magenta\" \"npm run start:api\" \"npm run start:web\""
+    "start": "concurrently --names \"API,WEB\" --prefix-colors \"cyan,magenta\" \"npm run start:api\" \"npm run start:web\"",
+    "app": "npm run build && npm run start"
   },
   "devDependencies": {
     "@prisma/client": "^5.22.0",
