@@ -211,6 +211,14 @@ export async function procesarArchivo(
       orderBy: { version: "asc" },
     });
 
+    // Obtener la máxima versión global (incluyendo soft-deleteados) para evitar
+    // unique constraint violation @@unique([empleadoId, trimestreId, version])
+    const maxVersionGlobal = await prisma.contrato.aggregate({
+      where: { empleadoId: empleado.id, trimestreId: trimestre.id },
+      _max: { version: true },
+    });
+    const proximaVersion = (maxVersionGlobal._max.version ?? 0) + 1;
+
     const hayDuplicado = contratosPrevios.length > 0;
 
     if (hayDuplicado) {
@@ -242,12 +250,8 @@ export async function procesarArchivo(
         };
       }
 
-      // "reemplazar" o "version": calcular siguiente número de versión
-      const maxVersion = Math.max(...contratosPrevios.map((c) => c.version));
-      const nuevaVersion = maxVersion + 1;
-
       if (resolucion === "reemplazar") {
-        // Soft-delete de todas las versiones previas
+        // Soft-delete de todas las versiones previas activas
         await prisma.contrato.updateMany({
           where: {
             empleadoId: empleado.id,
@@ -263,7 +267,7 @@ export async function procesarArchivo(
       const rutaRelativa = path.join(
         String(trimestreElegido.anio),
         `T${trimestreElegido.periodo}`,
-        `${rfcSanitizado}_v${nuevaVersion}.pdf`,
+        `${rfcSanitizado}_v${proximaVersion}.pdf`,
       );
       const rutaAbsoluta = path.join(DIR_SALIDA, rutaRelativa);
 
@@ -278,7 +282,7 @@ export async function procesarArchivo(
           nombreArchivo,
           rutaArchivo: rutaAbsoluta,
           estado: "TESTADO",
-          version: nuevaVersion,
+          version: proximaVersion,
           rfcDetectado: rfcDetectado,
           fechaContrato: fechaDetectada,
         },
@@ -290,17 +294,16 @@ export async function procesarArchivo(
         rfc: rfcEfectivo,
         nombre: nombreEfectivo,
         trimestre: trimestreElegido,
-        version: nuevaVersion,
+        version: proximaVersion,
       };
     }
 
-    // ── 8. Caso limpio: primera versión ───────────────────────────────────────
-    const version = 1;
+    // ── 8. Caso limpio: primera versión (usa proximaVersion global) ──────────
     const rfcSanitizado = sanitizarParaNombreArchivo(rfcEfectivo);
     const rutaRelativa = path.join(
       String(trimestreElegido.anio),
       `T${trimestreElegido.periodo}`,
-      `${rfcSanitizado}_v${version}.pdf`,
+      `${rfcSanitizado}_v${proximaVersion}.pdf`,
     );
     const rutaAbsoluta = path.join(DIR_SALIDA, rutaRelativa);
 
@@ -315,7 +318,7 @@ export async function procesarArchivo(
         nombreArchivo,
         rutaArchivo: rutaAbsoluta,
         estado: "TESTADO",
-        version,
+        version: proximaVersion,
         rfcDetectado: rfcDetectado,
         fechaContrato: fechaDetectada,
       },
@@ -328,7 +331,7 @@ export async function procesarArchivo(
       rfc: rfcEfectivo,
       nombre: nombreEfectivo,
       trimestre: trimestreElegido,
-      version,
+      version: proximaVersion,
     };
   } catch (err: unknown) {
     const mensaje =

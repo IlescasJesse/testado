@@ -61,6 +61,7 @@ vi.mock("../db.js", () => ({
     contrato: {
       findFirst: vi.fn(),
       findMany: vi.fn(),
+      aggregate: vi.fn(),
       create: vi.fn(),
       updateMany: vi.fn(),
       upsert: vi.fn(),
@@ -110,6 +111,7 @@ const CONTRATO_MOCK = {
 const mockContrato = prisma.contrato as unknown as {
   findFirst: ReturnType<typeof vi.fn>;
   findMany: ReturnType<typeof vi.fn>;
+  aggregate: ReturnType<typeof vi.fn>;
   create: ReturnType<typeof vi.fn>;
   updateMany: ReturnType<typeof vi.fn>;
 };
@@ -154,6 +156,7 @@ describe("procesarArchivo", () => {
       mockEmpleado.upsert.mockResolvedValueOnce(EMPLEADO_MOCK);
       mockTrimestre.upsert.mockResolvedValueOnce(TRIMESTRE_MOCK);
       mockContrato.findMany.mockResolvedValueOnce([CONTRATO_MOCK]);
+      mockContrato.aggregate.mockResolvedValueOnce({ _max: { version: 1 } });
 
       const resultado = await procesarArchivo(BUF_PRUEBA, NOMBRE_ARCHIVO);
 
@@ -172,6 +175,7 @@ describe("procesarArchivo", () => {
       mockEmpleado.upsert.mockResolvedValueOnce(EMPLEADO_MOCK);
       mockTrimestre.upsert.mockResolvedValueOnce(TRIMESTRE_MOCK);
       mockContrato.findMany.mockResolvedValueOnce([CONTRATO_MOCK]);
+      mockContrato.aggregate.mockResolvedValueOnce({ _max: { version: 1 } });
 
       const resultado = await procesarArchivo(BUF_PRUEBA, NOMBRE_ARCHIVO, {
         resolucionDuplicado: "omitir",
@@ -190,6 +194,7 @@ describe("procesarArchivo", () => {
       mockEmpleado.upsert.mockResolvedValueOnce(EMPLEADO_MOCK);
       mockTrimestre.upsert.mockResolvedValueOnce(TRIMESTRE_MOCK);
       mockContrato.findMany.mockResolvedValueOnce([]);
+      mockContrato.aggregate.mockResolvedValueOnce({ _max: { version: null } });
       mockContrato.create.mockResolvedValueOnce({ ...CONTRATO_MOCK, id: 99 });
 
       // Usamos un nombre de archivo que coincida con el OCR para que el cross-check
@@ -232,6 +237,7 @@ describe("procesarArchivo", () => {
       mockEmpleado.upsert.mockResolvedValueOnce({ id: 2, rfc: "XYZW900212AB3", nombre: "ANA GARCÍA" });
       mockTrimestre.upsert.mockResolvedValueOnce({ id: 2, anio: 2024, periodo: 2 });
       mockContrato.findMany.mockResolvedValueOnce([]);
+      mockContrato.aggregate.mockResolvedValueOnce({ _max: { version: null } });
       mockContrato.create.mockResolvedValueOnce({ ...CONTRATO_MOCK, id: 55 });
 
       const resultado = await procesarArchivo(BUF_PRUEBA, NOMBRE_ARCHIVO);
@@ -268,6 +274,7 @@ describe("procesarArchivo", () => {
       mockEmpleado.upsert.mockResolvedValueOnce(EMPLEADO_MOCK);
       mockTrimestre.upsert.mockResolvedValueOnce({ id: 3, anio: 2023, periodo: 4 });
       mockContrato.findMany.mockResolvedValueOnce([]);
+      mockContrato.aggregate.mockResolvedValueOnce({ _max: { version: null } });
       mockContrato.create.mockResolvedValueOnce({ ...CONTRATO_MOCK, id: 77 });
 
       const resultado = await procesarArchivo(BUF_PRUEBA, NOMBRE_ARCHIVO, {
@@ -286,6 +293,7 @@ describe("procesarArchivo", () => {
       mockEmpleado.upsert.mockResolvedValueOnce(EMPLEADO_MOCK);
       mockTrimestre.upsert.mockResolvedValueOnce(TRIMESTRE_MOCK);
       mockContrato.findMany.mockResolvedValueOnce([CONTRATO_MOCK]); // hay v1
+      mockContrato.aggregate.mockResolvedValueOnce({ _max: { version: 1 } });
       mockContrato.create.mockResolvedValueOnce({ ...CONTRATO_MOCK, id: 100, version: 2 });
 
       const resultado = await procesarArchivo(BUF_PRUEBA, NOMBRE_ARCHIVO, {
@@ -313,6 +321,7 @@ describe("procesarArchivo", () => {
       mockEmpleado.upsert.mockResolvedValueOnce(EMPLEADO_MOCK);
       mockTrimestre.upsert.mockResolvedValueOnce(TRIMESTRE_MOCK);
       mockContrato.findMany.mockResolvedValueOnce([CONTRATO_MOCK]);
+      mockContrato.aggregate.mockResolvedValueOnce({ _max: { version: 1 } });
       mockContrato.updateMany.mockResolvedValueOnce({ count: 1 });
       mockContrato.create.mockResolvedValueOnce({ ...CONTRATO_MOCK, id: 101, version: 2 });
 
@@ -346,6 +355,7 @@ describe("procesarArchivo", () => {
 
       mockContrato.findFirst.mockResolvedValueOnce(null);
       mockContrato.findMany.mockResolvedValueOnce([]);
+      mockContrato.aggregate.mockResolvedValueOnce({ _max: { version: null } });
       mockEmpleado.upsert.mockResolvedValueOnce({
         id: 3,
         rfc: "SINRFC-AABBCCDD",
