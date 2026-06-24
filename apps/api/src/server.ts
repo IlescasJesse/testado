@@ -3,6 +3,7 @@ import cors from "cors";
 import os from "os";
 import { Cola } from "./cola.js";
 import { router as rutasContratos } from "./rutas/contratos.js";
+import { router as rutasTrimestres } from "./rutas/trimestres.js";
 
 // ---------------------------------------------------------------------------
 // Concurrencia global: usa todos los núcleos menos uno (mínimo 1)
@@ -25,6 +26,9 @@ app.get("/api/health", (_req, res) => {
 
 // Rutas de contratos
 app.use("/api/contratos", rutasContratos);
+
+// Rutas de trimestres
+app.use("/api/trimestres", rutasTrimestres);
 
 // ---------------------------------------------------------------------------
 // Inicio del servidor
