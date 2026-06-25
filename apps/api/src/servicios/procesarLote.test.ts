@@ -156,7 +156,8 @@ describe("procesarArchivo", () => {
       mockEmpleado.upsert.mockResolvedValueOnce(EMPLEADO_MOCK);
       mockTrimestre.upsert.mockResolvedValueOnce(TRIMESTRE_MOCK);
       mockContrato.findMany.mockResolvedValueOnce([CONTRATO_MOCK]);
-      mockContrato.aggregate.mockResolvedValueOnce({ _max: { version: 1 } });
+      // No se mockea aggregate: con resolucion=undefined no se crea contrato,
+      // así que el helper (y su aggregate) no se invoca.
 
       const resultado = await procesarArchivo(BUF_PRUEBA, NOMBRE_ARCHIVO);
 
@@ -175,7 +176,7 @@ describe("procesarArchivo", () => {
       mockEmpleado.upsert.mockResolvedValueOnce(EMPLEADO_MOCK);
       mockTrimestre.upsert.mockResolvedValueOnce(TRIMESTRE_MOCK);
       mockContrato.findMany.mockResolvedValueOnce([CONTRATO_MOCK]);
-      mockContrato.aggregate.mockResolvedValueOnce({ _max: { version: 1 } });
+      // resolucion=omitir tampoco crea contrato → aggregate no se invoca.
 
       const resultado = await procesarArchivo(BUF_PRUEBA, NOMBRE_ARCHIVO, {
         resolucionDuplicado: "omitir",
@@ -340,6 +341,55 @@ describe("procesarArchivo", () => {
       };
       expect(updateArgs.where.eliminado).toBe(false);
       expect(updateArgs.data.eliminado).toBe(true);
+    });
+  });
+
+  // ── CONCURRENCIA: colisión de versión (P2002) ──────────────────────────────
+  describe("resiliencia a colisión de versión bajo concurrencia", () => {
+    it("reintenta con versión recalculada cuando create falla con P2002", async () => {
+      mockContrato.findFirst.mockResolvedValueOnce(null);
+      mockEmpleado.upsert.mockResolvedValueOnce(EMPLEADO_MOCK);
+      mockTrimestre.upsert.mockResolvedValueOnce(TRIMESTRE_MOCK);
+      mockContrato.findMany.mockResolvedValueOnce([]); // sin duplicado activo
+
+      // 1er intento: max=0 → intenta v1 y otro proceso ya lo tomó → P2002.
+      // 2º intento: max=1 (lo creó el otro proceso) → v2 → éxito.
+      mockContrato.aggregate
+        .mockResolvedValueOnce({ _max: { version: 0 } })
+        .mockResolvedValueOnce({ _max: { version: 1 } });
+
+      const errP2002 = Object.assign(new Error("Unique constraint failed"), {
+        code: "P2002",
+      });
+      mockContrato.create
+        .mockRejectedValueOnce(errP2002)
+        .mockResolvedValueOnce({ ...CONTRATO_MOCK, id: 300, version: 2 });
+
+      const resultado = await procesarArchivo(BUF_PRUEBA, "JUAN PEREZ LOPEZ.pdf");
+
+      expect(resultado.estado).toBe("testado");
+      expect(resultado.version).toBe(2);
+      // Debe haber intentado crear dos veces (v1 falló, v2 ok).
+      expect(mockContrato.create).toHaveBeenCalledTimes(2);
+      expect(mockContrato.aggregate).toHaveBeenCalledTimes(2);
+      const segundaLlamada = mockContrato.create.mock.calls[1][0] as {
+        data: { version: number };
+      };
+      expect(segundaLlamada.data.version).toBe(2);
+    });
+
+    it("propaga errores que NO son P2002 sin reintentar", async () => {
+      mockContrato.findFirst.mockResolvedValueOnce(null);
+      mockEmpleado.upsert.mockResolvedValueOnce(EMPLEADO_MOCK);
+      mockTrimestre.upsert.mockResolvedValueOnce(TRIMESTRE_MOCK);
+      mockContrato.findMany.mockResolvedValueOnce([]);
+      mockContrato.aggregate.mockResolvedValueOnce({ _max: { version: 0 } });
+      mockContrato.create.mockRejectedValueOnce(new Error("DB caída"));
+
+      const resultado = await procesarArchivo(BUF_PRUEBA, "JUAN PEREZ LOPEZ.pdf");
+
+      expect(resultado.estado).toBe("error");
+      expect(mockContrato.create).toHaveBeenCalledTimes(1); // sin reintento
     });
   });
 

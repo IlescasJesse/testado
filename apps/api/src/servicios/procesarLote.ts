@@ -111,6 +111,101 @@ function pseudoRfc(hash: string): string {
   return `SINRFC-${hash.slice(0, 8).toUpperCase()}`;
 }
 
+/** ¿Es un error de violación de unique constraint de Prisma (P2002)? */
+function esViolacionUnique(err: unknown): boolean {
+  return (
+    typeof err === "object" &&
+    err !== null &&
+    (err as { code?: unknown }).code === "P2002"
+  );
+}
+
+interface DatosNuevoContrato {
+  empleadoId: number;
+  trimestreId: number;
+  anio: number;
+  periodo: number;
+  rfcSanitizado: string;
+  bytesCensurados: Buffer;
+  hash: string;
+  nombreArchivo: string;
+  rfcDetectado: string | null;
+  fechaDetectada: Date | null;
+}
+
+/**
+ * Crea el Contrato resolviendo la versión de forma resiliente a la concurrencia.
+ *
+ * Bajo carga (la cola procesa hasta `CONCURRENCIA` archivos en paralelo), dos
+ * archivos del mismo empleado+trimestre pueden leer la MISMA versión máxima y
+ * colisionar en @@unique([empleadoId, trimestreId, version]) — además de
+ * sobrescribir el mismo `_vN.pdf`. Por eso, en cada intento:
+ *   1. Se recalcula la próxima versión (max global +1, incluye soft-deleteados).
+ *   2. Se escribe el PDF en la ruta `_v{version}.pdf` correspondiente.
+ *   3. Se intenta el create. Si falla con P2002, se reintenta con versión nueva.
+ *
+ * Así dos procesos concurrentes terminan en v1 y v2 sin pisar archivos ni la BD.
+ */
+async function crearContratoResiliente(
+  d: DatosNuevoContrato,
+): Promise<{ contratoId: number; version: number; rutaAbsoluta: string }> {
+  const MAX_INTENTOS = 6;
+  let ultimoError: unknown = null;
+
+  for (let intento = 0; intento < MAX_INTENTOS; intento++) {
+    // Máxima versión global (incluye soft-deleteados) para no colisionar con el
+    // unique constraint cuando hay versiones previas eliminadas.
+    const maxVersionGlobal = await prisma.contrato.aggregate({
+      where: { empleadoId: d.empleadoId, trimestreId: d.trimestreId },
+      _max: { version: true },
+    });
+    const version = (maxVersionGlobal._max.version ?? 0) + 1;
+
+    const rutaRelativa = path.join(
+      String(d.anio),
+      `T${d.periodo}`,
+      `${d.rfcSanitizado}_v${version}.pdf`,
+    );
+    const rutaAbsoluta = path.join(DIR_SALIDA, rutaRelativa);
+
+    await fs.mkdir(path.dirname(rutaAbsoluta), { recursive: true });
+    await fs.writeFile(rutaAbsoluta, d.bytesCensurados);
+
+    try {
+      const contrato = await prisma.contrato.create({
+        data: {
+          empleadoId: d.empleadoId,
+          trimestreId: d.trimestreId,
+          hash: d.hash,
+          nombreArchivo: d.nombreArchivo,
+          rutaArchivo: rutaAbsoluta,
+          estado: "TESTADO",
+          version,
+          rfcDetectado: d.rfcDetectado,
+          fechaContrato: d.fechaDetectada,
+        },
+      });
+      return { contratoId: contrato.id, version, rutaAbsoluta };
+    } catch (err) {
+      if (esViolacionUnique(err)) {
+        // Otro proceso tomó esta versión; recalcular y reintentar.
+        ultimoError = err;
+        console.warn(
+          `[procesarLote] Colisión de versión v${version} (empleado ${d.empleadoId}, ` +
+            `trimestre ${d.trimestreId}); reintentando (${intento + 1}/${MAX_INTENTOS}).`,
+        );
+        continue;
+      }
+      throw err;
+    }
+  }
+
+  throw (
+    ultimoError ??
+    new Error("No se pudo asignar una versión única tras varios reintentos.")
+  );
+}
+
 // ── Función principal ─────────────────────────────────────────────────────────
 
 /**
@@ -244,15 +339,8 @@ export async function procesarArchivo(
       orderBy: { version: "asc" },
     });
 
-    // Obtener la máxima versión global (incluyendo soft-deleteados) para evitar
-    // unique constraint violation @@unique([empleadoId, trimestreId, version])
-    const maxVersionGlobal = await prisma.contrato.aggregate({
-      where: { empleadoId: empleado.id, trimestreId: trimestre.id },
-      _max: { version: true },
-    });
-    const proximaVersion = (maxVersionGlobal._max.version ?? 0) + 1;
-
     const hayDuplicado = contratosPrevios.length > 0;
+    const rfcSanitizado = sanitizarParaNombreArchivo(rfcEfectivo);
 
     if (hayDuplicado) {
       const resolucion = opts?.resolucionDuplicado;
@@ -295,76 +383,53 @@ export async function procesarArchivo(
         });
       }
 
-      // Para "version" y "reemplazar" se crea el nuevo contrato abajo
-      const rfcSanitizado = sanitizarParaNombreArchivo(rfcEfectivo);
-      const rutaRelativa = path.join(
-        String(trimestreElegido.anio),
-        `T${trimestreElegido.periodo}`,
-        `${rfcSanitizado}_v${proximaVersion}.pdf`,
-      );
-      const rutaAbsoluta = path.join(DIR_SALIDA, rutaRelativa);
-
-      await fs.mkdir(path.dirname(rutaAbsoluta), { recursive: true });
-      await fs.writeFile(rutaAbsoluta, bytesCensurados);
-
-      const nuevoContrato = await prisma.contrato.create({
-        data: {
-          empleadoId: empleado.id,
-          trimestreId: trimestre.id,
-          hash,
-          nombreArchivo,
-          rutaArchivo: rutaAbsoluta,
-          estado: "TESTADO",
-          version: proximaVersion,
-          rfcDetectado: rfcDetectado,
-          fechaContrato: fechaDetectada,
-        },
+      // Para "version" y "reemplazar" se crea el nuevo contrato (resiliente a
+      // colisiones de versión bajo concurrencia).
+      const creado = await crearContratoResiliente({
+        empleadoId: empleado.id,
+        trimestreId: trimestre.id,
+        anio: trimestreElegido.anio,
+        periodo: trimestreElegido.periodo,
+        rfcSanitizado,
+        bytesCensurados,
+        hash,
+        nombreArchivo,
+        rfcDetectado,
+        fechaDetectada,
       });
 
       return {
         estado: "testado",
-        contratoId: nuevoContrato.id,
+        contratoId: creado.contratoId,
         rfc: rfcEfectivo,
         nombre: nombreEfectivo,
         trimestre: trimestreElegido,
-        version: proximaVersion,
+        version: creado.version,
       };
     }
 
-    // ── 8. Caso limpio: primera versión (usa proximaVersion global) ──────────
-    const rfcSanitizado = sanitizarParaNombreArchivo(rfcEfectivo);
-    const rutaRelativa = path.join(
-      String(trimestreElegido.anio),
-      `T${trimestreElegido.periodo}`,
-      `${rfcSanitizado}_v${proximaVersion}.pdf`,
-    );
-    const rutaAbsoluta = path.join(DIR_SALIDA, rutaRelativa);
-
-    await fs.mkdir(path.dirname(rutaAbsoluta), { recursive: true });
-    await fs.writeFile(rutaAbsoluta, bytesCensurados);
-
-    const contrato = await prisma.contrato.create({
-      data: {
-        empleadoId: empleado.id,
-        trimestreId: trimestre.id,
-        hash,
-        nombreArchivo,
-        rutaArchivo: rutaAbsoluta,
-        estado: "TESTADO",
-        version: proximaVersion,
-        rfcDetectado: rfcDetectado,
-        fechaContrato: fechaDetectada,
-      },
+    // ── 8. Caso limpio: primera versión (resiliente a concurrencia) ───────────
+    const creado = await crearContratoResiliente({
+      empleadoId: empleado.id,
+      trimestreId: trimestre.id,
+      anio: trimestreElegido.anio,
+      periodo: trimestreElegido.periodo,
+      rfcSanitizado,
+      bytesCensurados,
+      hash,
+      nombreArchivo,
+      rfcDetectado,
+      fechaDetectada,
     });
 
     // ── 9. Resultado exitoso ──────────────────────────────────────────────────
     return {
       estado: "testado",
-      contratoId: contrato.id,
+      contratoId: creado.contratoId,
       rfc: rfcEfectivo,
       nombre: nombreEfectivo,
       trimestre: trimestreElegido,
-      version: proximaVersion,
+      version: creado.version,
     };
   } catch (err: unknown) {
     const mensaje =
