@@ -36,6 +36,7 @@
 
 import path from "node:path";
 import fs from "node:fs/promises";
+import { existsSync } from "node:fs";
 import { calcularHash, trimestreDeFecha, testarPdf, nombreDesdeArchivo } from "@testado/pdf-core";
 import type { ResultadoProcesar } from "@testado/shared";
 import { prisma } from "../db.js";
@@ -51,8 +52,40 @@ function normalizarParaComparacion(s: string): string {
 }
 
 // ── Ruta base de salida ───────────────────────────────────────────────────────
-// apps/api/src/servicios/ → sube 4 niveles → raíz del monorepo
-const DIR_SALIDA = path.resolve(__dirname, "../../../../tested_Censurado");
+/**
+ * Localiza la raíz del monorepo de forma robusta, independiente del modo de
+ * ejecución:
+ *   - Producción: `node dist/server.js` → CommonJS, `__dirname` existe.
+ *   - Desarrollo: `ts-node --esm` → ESM, donde `__dirname` NO está definido
+ *     (referenciarlo directamente lanzaría ReferenceError). `typeof` es seguro
+ *     porque no evalúa identificadores no declarados.
+ * Se sube por el árbol desde el ancla disponible hasta encontrar el directorio
+ * que contiene `apps/` y `packages/` (la raíz del monorepo).
+ */
+function encontrarRaizMonorepo(): string {
+  const anclas = [
+    typeof __dirname !== "undefined" ? __dirname : null,
+    process.cwd(),
+  ].filter((x): x is string => x !== null);
+
+  for (const ancla of anclas) {
+    let dir = ancla;
+    for (let i = 0; i < 8; i++) {
+      if (existsSync(path.join(dir, "apps")) && existsSync(path.join(dir, "packages"))) {
+        return dir;
+      }
+      const padre = path.dirname(dir);
+      if (padre === dir) break; // llegamos a la raíz del FS
+      dir = padre;
+    }
+  }
+  // Fallback al comportamiento histórico si no se encontró el marcador.
+  return typeof __dirname !== "undefined"
+    ? path.resolve(__dirname, "../../../../")
+    : path.resolve(process.cwd(), "../../");
+}
+
+const DIR_SALIDA = path.join(encontrarRaizMonorepo(), "tested_Censurado");
 
 // ── Interfaces públicas ───────────────────────────────────────────────────────
 

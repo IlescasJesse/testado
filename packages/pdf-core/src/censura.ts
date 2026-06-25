@@ -28,7 +28,7 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import { execSync } from "child_process";
-import { detectarDatos } from "./ocr.js";
+import { detectarDatos, resolverPngGenerado } from "./ocr.js";
 import type { ResultadoOCR } from "./ocr.js";
 
 // ── Interfaces mínimas para libs sin tipos completos ──────────────────────────
@@ -97,13 +97,17 @@ function limpiar(ruta: string | null): void {
 // Se busca con dos estrategias: relativa a __dirname y relativa al CWD.
 
 function resolverFuenteMontserrat(): string {
+  // `__dirname` existe en CommonJS (producción) pero NO en ESM (ts-node --esm
+  // en dev); `typeof` evita el ReferenceError y caemos a cwd como ancla.
+  const baseDir = typeof __dirname !== "undefined" ? __dirname : process.cwd();
   const candidatos = [
-    // Cuando se ejecuta desde packages/pdf-core/src/
-    path.resolve(__dirname, "../../../fonts/Montserrat-Regular.ttf"),
+    // Relativo al módulo (packages/pdf-core/src/ o /dist/)
+    path.resolve(baseDir, "../../../fonts/Montserrat-Regular.ttf"),
+    path.resolve(baseDir, "../../fonts/Montserrat-Regular.ttf"),
     // Cuando CWD es la raíz del monorepo
     path.resolve(process.cwd(), "fonts/Montserrat-Regular.ttf"),
-    // Relativo a packages/pdf-core/
-    path.resolve(__dirname, "../../fonts/Montserrat-Regular.ttf"),
+    // Cuando CWD es apps/api (npm run dev/start -w @testado/api)
+    path.resolve(process.cwd(), "../../fonts/Montserrat-Regular.ttf"),
   ];
   for (const c of candidatos) {
     if (fs.existsSync(c)) return c;
@@ -128,10 +132,8 @@ async function detectarRFCEnImagenConRecuadro(
 
   const prefijo = `ocr_rfc_${Date.now()}_${Math.random().toString(36).slice(2)}`;
   const tempPdfPath = tmpPath("rfc_pdf", ".pdf");
-  const imgPath = path.join(
-    os.tmpdir(),
-    `${prefijo}-${pageIndex + 1}.png`,
-  );
+  // imgPath se resuelve tras convertir (poppler rellena con ceros el nº de página).
+  let imgPath: string | null = null;
   const tsvBasePath = path.join(os.tmpdir(), `${prefijo}_tsv`);
   const tsvPath = `${tsvBasePath}.tsv`;
 
@@ -147,7 +149,8 @@ async function detectarRFCEnImagenConRecuadro(
     };
     await poppler.convert(tempPdfPath, opts);
 
-    if (!fs.existsSync(imgPath)) {
+    imgPath = resolverPngGenerado(os.tmpdir(), prefijo, pageIndex + 1);
+    if (imgPath === null) {
       console.warn("[censura] No se generó imagen OCR para RFC");
       return null;
     }
@@ -427,7 +430,8 @@ async function detectarYCensurarFirmaUltimaPagina(
 
   const prefijo = `ocr_firma_${Date.now()}_${Math.random().toString(36).slice(2)}`;
   const tempPdfPath = tmpPath("firma_pdf", ".pdf");
-  const imgPath = path.join(os.tmpdir(), `${prefijo}-${ultimoIdx + 1}.png`);
+  // imgPath se resuelve tras convertir (poppler rellena con ceros el nº de página).
+  let imgPath: string | null = null;
   const tsvBasePath = path.join(os.tmpdir(), `${prefijo}_tsv`);
   const tsvPath = `${tsvBasePath}.tsv`;
 
@@ -443,7 +447,8 @@ async function detectarYCensurarFirmaUltimaPagina(
     };
     await poppler.convert(tempPdfPath, opts);
 
-    if (!fs.existsSync(imgPath)) {
+    imgPath = resolverPngGenerado(os.tmpdir(), prefijo, ultimoIdx + 1);
+    if (imgPath === null) {
       console.warn("[censura] No se generó imagen para última página, usando fallback firma");
       await aplicarFallbackFirmaUltimaPagina(ultimaPagina, pdfW, pdfH);
       return;
