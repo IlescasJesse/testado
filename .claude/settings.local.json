@@ -1,7 +1,10 @@
 {
   "permissions": {
     "allow": [
-      "Bash(git -C \"C:\\\\Users\\\\jesse\\\\Documents\\\\TESTADO\\\\testado\" diff HEAD -- server.js)"
+      "Bash(git -C \"C:\\\\Users\\\\jesse\\\\Documents\\\\TESTADO\\\\testado\" diff HEAD -- server.js)",
+      "Bash(git merge *)",
+      "Bash(git add *)",
+      "Bash(git commit *)"
     ]
   }
 }
