@@ -63,18 +63,27 @@ vi.mock("archiver", () => {
   return { default: archiverFactory };
 });
 
-vi.mock("node:fs", () => ({
-  default: {
-    existsSync: vi.fn(() => true),
-  },
-  existsSync: vi.fn(() => true),
-}));
+// El router ahora arma el ZIP en un archivo temporal real (fs.createWriteStream/
+// createReadStream/promises.stat/unlink) antes de responder, para conocer el
+// Content-Length de antemano. Se usa el fs real para esas operaciones —
+// escribe/lee en os.tmpdir() de verdad durante el test— y solo se mockea
+// existsSync (controla qué rutas de contrato "existen" en disco).
+vi.mock("node:fs", async () => {
+  const real = await vi.importActual<typeof import("node:fs")>("node:fs");
+  const existsSyncMock = vi.fn(() => true);
+  return {
+    ...real,
+    default: { ...real, existsSync: existsSyncMock },
+    existsSync: existsSyncMock,
+  };
+});
 
 vi.mock("../db.js", () => ({
   prisma: {
     contrato: {
       groupBy: vi.fn(),
       findMany: vi.fn(),
+      updateMany: vi.fn(),
     },
     trimestre: {
       findMany: vi.fn(),
@@ -104,6 +113,7 @@ function crearApp(): ReturnType<typeof express> {
 const mockContrato = prisma.contrato as unknown as {
   groupBy: ReturnType<typeof vi.fn>;
   findMany: ReturnType<typeof vi.fn>;
+  updateMany: ReturnType<typeof vi.fn>;
 };
 
 const mockTrimestre = prisma.trimestre as unknown as {
@@ -307,7 +317,7 @@ describe("GET /api/trimestres/:anio/:periodo/respaldo", () => {
     // Verifica que se intentó agregar el archivo al ZIP
     expect(fakeArchive.file).toHaveBeenCalledWith(
       "/data/contratos/contrato1.pdf",
-      expect.objectContaining({ name: expect.stringContaining("ABCD870101XY1") }),
+      expect.objectContaining({ name: expect.stringContaining("JUAN PÉREZ") }),
     );
     // Verifica que se agregó el manifiesto
     expect(fakeArchive.append).toHaveBeenCalledWith(
@@ -390,5 +400,38 @@ describe("GET /api/trimestres/:anio/:periodo/respaldo", () => {
       expect.stringContaining("ARCHIVO_NO_ENCONTRADO"),
       expect.objectContaining({ name: "manifiesto.txt" }),
     );
+  });
+});
+
+describe("POST /api/trimestres/:anio/:periodo/eliminar", () => {
+  it("responde 400 con periodo fuera de rango (1-5)", async () => {
+    const app = crearApp();
+
+    const respuesta = await request(app)
+      .post("/api/trimestres/2025/9/eliminar")
+      .expect(400);
+
+    expect(respuesta.body.success).toBe(false);
+    expect(mockContrato.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("marca eliminado=true a todos los contratos no eliminados del trimestre", async () => {
+    const app = crearApp();
+    mockContrato.updateMany.mockResolvedValueOnce({ count: 7 });
+
+    const respuesta = await request(app)
+      .post("/api/trimestres/2025/2/eliminar")
+      .expect(200);
+
+    expect(respuesta.body.success).toBe(true);
+    expect(respuesta.body.eliminados).toBe(7);
+
+    const args = mockContrato.updateMany.mock.calls[0][0] as {
+      where: { eliminado: boolean; trimestre: { anio: number; periodo: number } };
+      data: { eliminado: boolean };
+    };
+    expect(args.where.eliminado).toBe(false);
+    expect(args.where.trimestre).toEqual({ anio: 2025, periodo: 2 });
+    expect(args.data.eliminado).toBe(true);
   });
 });

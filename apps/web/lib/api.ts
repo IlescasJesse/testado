@@ -1,6 +1,6 @@
-import type { ContratoDTO, Estado, ResumenLote, ResultadoProcesar, ProgresoLote, LoteIniciado, ResumenTrimestre, ResumenBloqueo, ResumenDesbloqueo } from "@testado/shared";
+import type { ContratoDTO, Estado, ResumenLote, ResultadoProcesar, ProgresoLote, LoteIniciado, ResumenTrimestre, ResumenBloqueo, ResumenDesbloqueo, ResultadoAccion, ProgresoAccion, LoteAccionIniciado, ResumenEliminarTrimestre } from "@testado/shared";
 
-export type { ContratoDTO, Estado, ResumenLote, ResultadoProcesar, ProgresoLote, LoteIniciado, ResumenTrimestre, ResumenBloqueo, ResumenDesbloqueo };
+export type { ContratoDTO, Estado, ResumenLote, ResultadoProcesar, ProgresoLote, LoteIniciado, ResumenTrimestre, ResumenBloqueo, ResumenDesbloqueo, ResultadoAccion, ProgresoAccion, LoteAccionIniciado, ResumenEliminarTrimestre };
 
 const API_URL = "";
 

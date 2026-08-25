@@ -36,8 +36,16 @@ import ListAltIcon from "@mui/icons-material/ListAlt";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import DownloadIcon from "@mui/icons-material/Download";
 import VpnKeyIcon from "@mui/icons-material/VpnKey";
+import SearchIcon from "@mui/icons-material/Search";
+import InputAdornment from "@mui/material/InputAdornment";
 import { apiGet, apiPost, urlArchivo } from "@/lib/api";
-import type { ContratoDTO, Estado, ResumenBloqueo, ResumenDesbloqueo } from "@/lib/api";
+import type {
+  ContratoDTO,
+  Estado,
+  LoteAccionIniciado,
+  ProgresoAccion,
+  ResultadoAccion,
+} from "@/lib/api";
 import VisorPdf from "@/components/VisorPdf";
 
 type TabIndex = 0 | 1 | 2;
@@ -89,6 +97,9 @@ export default function BloquearPage() {
   const [filasPorPagina, setFilasPorPagina] = useState(25);
   const [dialogPwdOpen, setDialogPwdOpen] = useState(false);
   const [pwdInput, setPwdInput] = useState("");
+  const [busqueda, setBusqueda] = useState("");
+  const [accionResultados, setAccionResultados] = useState<ResultadoAccion[]>([]);
+  const [accionTotal, setAccionTotal] = useState(0);
 
   const loadContratos = useCallback(async (tabIdx: TabIndex) => {
     setLoading(true);
@@ -181,6 +192,36 @@ export default function BloquearPage() {
     }
   };
 
+  // ── Polling de progreso contrato-por-contrato (bloquear/desbloquear) ──────────
+  // El POST responde de inmediato con un loteId; cada contrato se procesa en
+  // segundo plano en el servidor. Se consulta /progreso cada 1s para ir
+  // mostrando cada contrato apenas se resuelve, en vez de esperar en silencio
+  // a que termine todo el lote (lo que con lotes grandes podía exceder el
+  // timeout del proxy de Next.js y mostrar "socket hang up").
+  const pollAccionHastaCompletar = (
+    endpoint: "bloquear" | "desbloquear",
+    loteId: string,
+  ): Promise<ResultadoAccion[]> => {
+    return new Promise((resolve, reject) => {
+      const tick = async () => {
+        try {
+          const data = await apiGet<ProgresoAccion>(
+            `/api/contratos/${endpoint}/progreso?loteId=${encodeURIComponent(loteId)}`,
+          );
+          setAccionResultados(data.hechos);
+          if (data.completado) {
+            resolve(data.hechos);
+          } else {
+            setTimeout(tick, 1000);
+          }
+        } catch (err) {
+          reject(err instanceof Error ? err : new Error("Error al consultar progreso"));
+        }
+      };
+      tick();
+    });
+  };
+
   // ── Bloquear ──────────────────────────────────────────────────────────────────
 
   const handleBloquear = async () => {
@@ -190,9 +231,11 @@ export default function BloquearPage() {
     setBloqueando(true);
     setAccionError(null);
     setAccionSuccess(null);
+    setAccionResultados([]);
+    setAccionTotal(ids.length);
 
     try {
-      const result = await apiPost<ResumenBloqueo | { success: false; message: string }>(
+      const result = await apiPost<LoteAccionIniciado | { success: false; message: string }>(
         "/api/contratos/bloquear",
         { ids },
       );
@@ -203,12 +246,18 @@ export default function BloquearPage() {
         setAccionError(
           `qpdf no disponible en este servidor. No es posible bloquear contratos sin qpdf instalado.${detail}`,
         );
-      } else {
-        const resumen = result.data as ResumenBloqueo;
-        setAccionSuccess(`Bloqueados: ${resumen.bloqueados} contratos`);
-        setSelected(new Set<number>());
-        await loadContratos(tab);
+        return;
       }
+
+      const { loteId } = result.data as LoteAccionIniciado;
+      const hechos = await pollAccionHastaCompletar("bloquear", loteId);
+      const ok = hechos.filter((h) => h.ok).length;
+      const fallidos = hechos.length - ok;
+      setAccionSuccess(
+        `Bloqueados: ${ok} contratos${fallidos > 0 ? ` — ${fallidos} con error` : ""}`,
+      );
+      setSelected(new Set<number>());
+      await loadContratos(tab);
     } catch (err) {
       setAccionError(err instanceof Error ? err.message : "Error al bloquear contratos");
     } finally {
@@ -231,21 +280,29 @@ export default function BloquearPage() {
     setBloqueando(true);
     setAccionError(null);
     setAccionSuccess(null);
+    setAccionResultados([]);
+    setAccionTotal(ids.length);
 
     try {
-      const result = await apiPost<ResumenDesbloqueo | { success: false; message?: string }>(
+      const result = await apiPost<LoteAccionIniciado | { success: false; message?: string }>(
         "/api/contratos/desbloquear",
         { ids, password: pwdInput },
       );
 
       if (result.status === 401) {
         setAccionError("Contraseña incorrecta. No se puede desbloquear.");
-      } else {
-        const resumen = result.data as ResumenDesbloqueo;
-        setAccionSuccess(`Desbloqueados: ${resumen.desbloqueados ?? 0} contratos`);
-        setSelected(new Set<number>());
-        await loadContratos(tab);
+        return;
       }
+
+      const { loteId } = result.data as LoteAccionIniciado;
+      const hechos = await pollAccionHastaCompletar("desbloquear", loteId);
+      const ok = hechos.filter((h) => h.ok).length;
+      const fallidos = hechos.length - ok;
+      setAccionSuccess(
+        `Desbloqueados: ${ok} contratos${fallidos > 0 ? ` — ${fallidos} con error` : ""}`,
+      );
+      setSelected(new Set<number>());
+      await loadContratos(tab);
     } catch (err) {
       setAccionError(err instanceof Error ? err.message : "Error al desbloquear contratos");
     } finally {
@@ -253,9 +310,25 @@ export default function BloquearPage() {
     }
   };
 
+  // ── Búsqueda ──────────────────────────────────────────────────────────────────
+
+  const contratosFiltrados = busqueda.trim()
+    ? contratos.filter((c) =>
+        (c.nombre ?? "").toLowerCase().includes(busqueda.trim().toLowerCase()),
+      )
+    : contratos;
+
+  const handleBusquedaChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setBusqueda(e.target.value);
+    setPagina(0);
+  };
+
   // ── Paginación ────────────────────────────────────────────────────────────────
 
-  const paginated = contratos.slice(pagina * filasPorPagina, (pagina + 1) * filasPorPagina);
+  const paginated = contratosFiltrados.slice(
+    pagina * filasPorPagina,
+    (pagina + 1) * filasPorPagina,
+  );
 
   const handleChangePage = (_event: unknown, newPage: number) => {
     setPagina(newPage);
@@ -300,6 +373,23 @@ export default function BloquearPage() {
 
       {/* Barra de acciones */}
       <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 2, flexWrap: "wrap" }}>
+        <TextField
+          size="small"
+          placeholder="Buscar por nombre..."
+          value={busqueda}
+          onChange={handleBusquedaChange}
+          sx={{ minWidth: 240 }}
+          slotProps={{
+            input: {
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon fontSize="small" />
+                </InputAdornment>
+              ),
+            },
+          }}
+        />
+
         <Typography variant="body2" color="text.secondary">
           {selected.size} seleccionados
           {hayMezcla
@@ -339,6 +429,50 @@ export default function BloquearPage() {
           <RefreshIcon />
         </IconButton>
       </Box>
+
+      {/* Progreso contrato por contrato al bloquear/desbloquear */}
+      {bloqueando && accionTotal > 0 && (
+        <Paper variant="outlined" sx={{ mb: 2, p: 2 }}>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
+            <CircularProgress size={18} />
+            <Typography variant="body2">
+              Procesando {accionResultados.length} / {accionTotal} contratos...
+            </Typography>
+          </Box>
+          <Box sx={{ maxHeight: 240, overflowY: "auto" }}>
+            {accionResultados.map((r) => (
+              <Box
+                key={r.id}
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 1,
+                  py: 0.5,
+                  borderBottom: "1px solid",
+                  borderColor: "divider",
+                }}
+              >
+                {r.ok ? (
+                  <CheckCircleIcon color="success" fontSize="small" />
+                ) : (
+                  <ErrorOutlineIcon color="error" fontSize="small" />
+                )}
+                <Typography variant="body2">{r.rfc ?? `#${r.id}`}</Typography>
+                {r.nombre && (
+                  <Typography variant="body2" color="text.secondary">
+                    {r.nombre}
+                  </Typography>
+                )}
+                {!r.ok && r.mensaje && (
+                  <Typography variant="caption" color="error">
+                    {r.mensaje}
+                  </Typography>
+                )}
+              </Box>
+            ))}
+          </Box>
+        </Paper>
+      )}
 
       {/* Loading */}
       {loading && (
@@ -393,7 +527,7 @@ export default function BloquearPage() {
       {/* Tabla */}
       {!loading && (
         <>
-          {contratos.length === 0 ? (
+          {contratosFiltrados.length === 0 ? (
             <Typography color="text.secondary" sx={{ py: 4, textAlign: "center" }}>
               No hay contratos con este filtro
             </Typography>
@@ -484,7 +618,7 @@ export default function BloquearPage() {
               </TableContainer>
               <TablePagination
                 component="div"
-                count={contratos.length}
+                count={contratosFiltrados.length}
                 page={pagina}
                 onPageChange={handleChangePage}
                 rowsPerPage={filasPorPagina}

@@ -35,9 +35,11 @@
 import { Router, Request, Response } from "express";
 import multer from "multer";
 import fs from "node:fs/promises";
-import fsSync from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import crypto from "node:crypto";
 import { prisma } from "../db.js";
-import type { ResultadoProcesar } from "@testado/shared";
+import type { ResultadoProcesar, ResultadoAccion } from "@testado/shared";
 import { procesarArchivo } from "../servicios/procesarLote.js";
 import { colaGlobal } from "../server.js";
 import { qpdfDisponible, bloquear, desbloquear } from "@testado/pdf-core";
@@ -46,11 +48,24 @@ import { qpdfDisponible, bloquear, desbloquear } from "@testado/pdf-core";
 
 export const router = Router();
 
-// ── Multer (memoria, solo PDF, máx 50 MB/archivo) ────────────────────────────
+// ── Multer (disco, solo PDF, máx 50 MB/archivo) ──────────────────────────────
+// Antes usaba memoryStorage: multer buffereaba TODOS los archivos del request
+// en RAM antes de que el handler corriera, sin límite de cantidad. Con lotes
+// grandes (muchos archivos y/o pesados) esto agotaba el heap de Node y tumbaba
+// el proceso entero (el frontend veía "failed to fetch" porque el servidor
+// moría a mitad de la subida). Con diskStorage cada archivo se escribe a un
+// temporal vía streaming (memoria acotada) y cada uno se lee de a uno dentro
+// de colaGlobal (concurrencia limitada), no todos de golpe.
 
 const upload = multer({
-  storage: multer.memoryStorage(),
-  limits: { fileSize: 50 * 1024 * 1024 },
+  storage: multer.diskStorage({
+    destination: (_req, _file, cb) => cb(null, os.tmpdir()),
+    filename: (_req, file, cb) => {
+      const ext = path.extname(file.originalname) || ".pdf";
+      cb(null, `testado_${crypto.randomUUID()}${ext}`);
+    },
+  }),
+  limits: { fileSize: 50 * 1024 * 1024, files: 1000 },
   fileFilter: (_req, file, cb) => {
     if (file.mimetype === "application/pdf" || file.originalname.toLowerCase().endsWith(".pdf")) {
       cb(null, true);
@@ -71,6 +86,21 @@ const lotes = new Map<string, EstadoLote>();
 let contadorLotes = 0;
 let ultimoLoteId: string | null = null;
 
+// ── Estado de lotes de bloqueo/desbloqueo en memoria (progreso contrato x contrato) ──
+// Mismo patrón que `lotes` (POST /testar): el POST /bloquear o /desbloquear responde
+// de inmediato con un loteId y procesa cada contrato en segundo plano vía colaGlobal;
+// el frontend consulta /bloquear/progreso o /desbloquear/progreso para ir mostrando
+// cada contrato según se resuelve, en vez de esperar una sola respuesta gigante que
+// puede exceder timeouts del proxy de Next.js con lotes grandes.
+
+interface EstadoLoteAccion {
+  total: number;
+  hechos: ResultadoAccion[];
+}
+
+const lotesAccion = new Map<string, EstadoLoteAccion>();
+let contadorLotesAccion = 0;
+
 // ── Interfaces para DTOs y bodies ─────────────────────────────────────────────
 
 interface QueryListar {
@@ -87,6 +117,20 @@ interface BodyBloquear {
 interface BodyDesbloquear {
   ids?: unknown;
   password?: unknown;
+}
+
+// ── Helper: escritura atómica (evita truncar un archivo que otra request ────
+// pueda estar leyendo simultáneamente, p.ej. una descarga en curso). Escribe
+// a un temporal en el mismo directorio y renombra: fs.rename es atómico en el
+// mismo filesystem y libuv abre los file descriptors con FILE_SHARE_DELETE en
+// Windows, por lo que un rename encima de un archivo con un read-stream ya
+// abierto no lo corrompe — el lector en curso sigue viendo el contenido viejo
+// completo hasta que cierra su fd.
+
+async function escribirArchivoAtomico(rutaDestino: string, contenido: Buffer): Promise<void> {
+  const rutaTemp = `${rutaDestino}.${process.pid}-${Date.now()}.tmp`;
+  await fs.writeFile(rutaTemp, contenido);
+  await fs.rename(rutaTemp, rutaDestino);
 }
 
 // ── Helper: valida que `ids` sea number[] no vacío ───────────────────────────
@@ -158,16 +202,21 @@ router.post(
         if (lote === undefined) return;
 
         for (const archivo of archivos) {
-          const buf = archivo.buffer;
+          const rutaTemp = archivo.path;
           const nombre = archivo.originalname;
 
           void colaGlobal
-            .add(() =>
-              procesarArchivo(buf, nombre, {
-                trimestre,
-                resolucionDuplicado,
-              }),
-            )
+            .add(async () => {
+              const buf = await fs.readFile(rutaTemp);
+              try {
+                return await procesarArchivo(buf, nombre, {
+                  trimestre,
+                  resolucionDuplicado,
+                });
+              } finally {
+                await fs.unlink(rutaTemp).catch(() => undefined);
+              }
+            })
             .then((resultado) => {
               lote.hechos.push(resultado);
             })
@@ -261,6 +310,12 @@ router.get("/", async (req: Request, res: Response): Promise<void> => {
 });
 
 // ── 4. POST /bloquear ─────────────────────────────────────────────────────────
+//
+// Responde de inmediato con un loteId y cifra cada contrato en segundo plano
+// (vía colaGlobal, mismo patrón que /testar). Evita una request única que
+// bloquee minutos con lotes grandes y exceda el timeout del proxy de Next.js
+// ("socket hang up"). El progreso contrato-por-contrato se consulta en
+// GET /bloquear/progreso?loteId=...
 
 router.post("/bloquear", async (req: Request, res: Response): Promise<void> => {
   try {
@@ -291,55 +346,90 @@ router.post("/bloquear", async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    let bloqueados = 0;
-    const errores: Array<{ id: number; mensaje: string }> = [];
+    const ids = body.ids;
+    const loteId = `bloq-${Date.now()}-${contadorLotesAccion++}`;
+    lotesAccion.set(loteId, { total: ids.length, hechos: [] });
 
-    for (const id of body.ids) {
-      try {
-        const contrato = await prisma.contrato.findUnique({
-          where: { id, eliminado: false },
-        });
+    res.json({ success: true, loteId, total: ids.length });
 
-        if (contrato === null) {
-          errores.push({ id, mensaje: "Contrato no encontrado o eliminado." });
-          continue;
-        }
+    setImmediate(() => {
+      const lote = lotesAccion.get(loteId);
+      if (lote === undefined) return;
 
-        // Salvaguarda: solo se cifra lo que está testado o desbloqueado.
-        // Re-cifrar un BLOQUEADO aplicaría qpdf sobre un PDF ya cifrado y lo
-        // corrompería; un ERROR no tiene un PDF censurado válido.
-        if (contrato.estado !== "TESTADO" && contrato.estado !== "DESBLOQUEADO") {
-          errores.push({
-            id,
-            mensaje: `Estado '${contrato.estado}' no bloqueable (solo TESTADO o DESBLOQUEADO).`,
+      for (const id of ids) {
+        void colaGlobal
+          .add(async (): Promise<ResultadoAccion> => {
+            const contrato = await prisma.contrato.findUnique({
+              where: { id, eliminado: false },
+              include: { empleado: { select: { rfc: true, nombre: true } } },
+            });
+
+            if (contrato === null) {
+              return { id, ok: false, mensaje: "Contrato no encontrado o eliminado." };
+            }
+
+            // Salvaguarda: solo se cifra lo que está testado o desbloqueado.
+            // Re-cifrar un BLOQUEADO aplicaría qpdf sobre un PDF ya cifrado y lo
+            // corrompería; un ERROR no tiene un PDF censurado válido.
+            if (contrato.estado !== "TESTADO" && contrato.estado !== "DESBLOQUEADO") {
+              return {
+                id,
+                rfc: contrato.empleado.rfc,
+                nombre: contrato.empleado.nombre,
+                ok: false,
+                mensaje: `Estado '${contrato.estado}' no bloqueable (solo TESTADO o DESBLOQUEADO).`,
+              };
+            }
+
+            const bytes = await fs.readFile(contrato.rutaArchivo);
+            const cifrado = bloquear(bytes, ownerPwd);
+            await escribirArchivoAtomico(contrato.rutaArchivo, cifrado);
+
+            await prisma.contrato.update({
+              where: { id },
+              data: { estado: "BLOQUEADO", bloqueadoEn: new Date() },
+            });
+
+            return { id, rfc: contrato.empleado.rfc, nombre: contrato.empleado.nombre, ok: true };
+          })
+          .then((resultado) => {
+            lote.hechos.push(resultado);
+          })
+          .catch((err: unknown) => {
+            const mensaje = err instanceof Error ? err.message : "Error desconocido.";
+            lote.hechos.push({ id, ok: false, mensaje });
           });
-          continue;
-        }
-
-        const bytes = await fs.readFile(contrato.rutaArchivo);
-        const cifrado = bloquear(bytes, ownerPwd);
-        await fs.writeFile(contrato.rutaArchivo, cifrado);
-
-        await prisma.contrato.update({
-          where: { id },
-          data: { estado: "BLOQUEADO", bloqueadoEn: new Date() },
-        });
-
-        bloqueados++;
-      } catch (err: unknown) {
-        const mensaje = err instanceof Error ? err.message : "Error desconocido.";
-        errores.push({ id, mensaje });
       }
-    }
-
-    res.json({ success: true, bloqueados, errores });
+    });
   } catch (err: unknown) {
     const mensaje = err instanceof Error ? err.message : "Error interno del servidor.";
     res.status(500).json({ success: false, message: mensaje });
   }
 });
 
+// ── 4b. GET /bloquear/progreso ────────────────────────────────────────────────
+
+router.get("/bloquear/progreso", (req: Request, res: Response): void => {
+  const loteId = req.query["loteId"] as string | undefined;
+  const lote = loteId !== undefined ? lotesAccion.get(loteId) : undefined;
+
+  if (lote === undefined) {
+    res.json({ total: 0, hechos: [], completado: true });
+    return;
+  }
+
+  res.json({
+    total: lote.total,
+    hechos: lote.hechos,
+    completado: lote.hechos.length >= lote.total,
+  });
+});
+
 // ── 5. POST /desbloquear ──────────────────────────────────────────────────────
+//
+// Mismo patrón que /bloquear: la contraseña se valida de inmediato (síncrono),
+// pero el descifrado de cada contrato corre en segundo plano con progreso vía
+// GET /desbloquear/progreso?loteId=...
 
 router.post("/desbloquear", async (req: Request, res: Response): Promise<void> => {
   try {
@@ -378,41 +468,70 @@ router.post("/desbloquear", async (req: Request, res: Response): Promise<void> =
       return;
     }
 
-    let desbloqueados = 0;
-    const errores: Array<{ id: number; mensaje: string }> = [];
+    const ids = body.ids;
+    const loteId = `desb-${Date.now()}-${contadorLotesAccion++}`;
+    lotesAccion.set(loteId, { total: ids.length, hechos: [] });
 
-    for (const id of body.ids) {
-      try {
-        const contrato = await prisma.contrato.findUnique({
-          where: { id, eliminado: false },
-        });
+    res.json({ success: true, loteId, total: ids.length });
 
-        if (contrato === null) {
-          errores.push({ id, mensaje: "Contrato no encontrado o eliminado." });
-          continue;
-        }
+    setImmediate(() => {
+      const lote = lotesAccion.get(loteId);
+      if (lote === undefined) return;
 
-        const bytes = await fs.readFile(contrato.rutaArchivo);
-        const descifrado = desbloquear(bytes, ownerPwd);
-        await fs.writeFile(contrato.rutaArchivo, descifrado);
+      for (const id of ids) {
+        void colaGlobal
+          .add(async (): Promise<ResultadoAccion> => {
+            const contrato = await prisma.contrato.findUnique({
+              where: { id, eliminado: false },
+              include: { empleado: { select: { rfc: true, nombre: true } } },
+            });
 
-        await prisma.contrato.update({
-          where: { id },
-          data: { estado: "DESBLOQUEADO", bloqueadoEn: null },
-        });
+            if (contrato === null) {
+              return { id, ok: false, mensaje: "Contrato no encontrado o eliminado." };
+            }
 
-        desbloqueados++;
-      } catch (err: unknown) {
-        const mensaje = err instanceof Error ? err.message : "Error desconocido.";
-        errores.push({ id, mensaje });
+            const bytes = await fs.readFile(contrato.rutaArchivo);
+            const descifrado = desbloquear(bytes, ownerPwd);
+            await escribirArchivoAtomico(contrato.rutaArchivo, descifrado);
+
+            await prisma.contrato.update({
+              where: { id },
+              data: { estado: "DESBLOQUEADO", bloqueadoEn: null },
+            });
+
+            return { id, rfc: contrato.empleado.rfc, nombre: contrato.empleado.nombre, ok: true };
+          })
+          .then((resultado) => {
+            lote.hechos.push(resultado);
+          })
+          .catch((err: unknown) => {
+            const mensaje = err instanceof Error ? err.message : "Error desconocido.";
+            lote.hechos.push({ id, ok: false, mensaje });
+          });
       }
-    }
-
-    res.json({ success: true, desbloqueados, errores });
+    });
   } catch (err: unknown) {
     const mensaje = err instanceof Error ? err.message : "Error interno del servidor.";
     res.status(500).json({ success: false, message: mensaje });
   }
+});
+
+// ── 5b. GET /desbloquear/progreso ─────────────────────────────────────────────
+
+router.get("/desbloquear/progreso", (req: Request, res: Response): void => {
+  const loteId = req.query["loteId"] as string | undefined;
+  const lote = loteId !== undefined ? lotesAccion.get(loteId) : undefined;
+
+  if (lote === undefined) {
+    res.json({ total: 0, hechos: [], completado: true });
+    return;
+  }
+
+  res.json({
+    total: lote.total,
+    hechos: lote.hechos,
+    completado: lote.hechos.length >= lote.total,
+  });
 });
 
 // ── 6. GET /:id/archivo — ver o descargar el PDF censurado ───────────────────
@@ -439,7 +558,7 @@ router.get("/:id/archivo", async (req: Request, res: Response): Promise<void> =>
     const contrato = await prisma.contrato.findUnique({
       where: { id: idRaw },
       include: {
-        empleado: { select: { rfc: true } },
+        empleado: { select: { rfc: true, nombre: true } },
         trimestre: { select: { anio: true, periodo: true } },
       },
     });
@@ -449,9 +568,19 @@ router.get("/:id/archivo", async (req: Request, res: Response): Promise<void> =>
       return;
     }
 
-    // Verificar que el archivo existe en disco
+    // Se lee el archivo COMPLETO a memoria antes de responder (en vez de stream)
+    // y se manda de una sola vez con res.end(buffer). Así Content-Length es
+    // exacto desde el primer byte de la respuesta — Chrome conoce el peso real
+    // de inmediato y muestra un tiempo de espera real en vez de "Reanudando...".
+    // Con un stream, cualquier micro-corte de la conexión (p.ej. mientras el
+    // proceso hace otra tarea pesada) deja a Chrome sin saber si el archivo
+    // sigue llegando o se cortó, y reintenta con Range — que este endpoint no
+    // soporta — quedándose en "Reanudando" indefinidamente. Por eso también se
+    // manda "Accept-Ranges: none": le dice al navegador explícitamente que no
+    // intente descargas parciales/reanudables contra este endpoint.
+    let bytes: Buffer;
     try {
-      await fs.access(contrato.rutaArchivo);
+      bytes = await fs.readFile(contrato.rutaArchivo);
     } catch {
       res.status(404).json({
         success: false,
@@ -462,11 +591,17 @@ router.get("/:id/archivo", async (req: Request, res: Response): Promise<void> =>
 
     const descargar = req.query["descargar"] === "1";
 
-    // Nombre de descarga legible: RFC_AAAATn.pdf
-    const rfc = contrato.empleado.rfc.replace(/[^A-Z0-9\-_]/gi, "_");
-    const nombreDescarga = `${rfc}_${contrato.trimestre.anio}T${contrato.trimestre.periodo}.pdf`;
+    // Nombre de descarga legible: NOMBRE COMPLETO.pdf (apellido paterno, apellido
+    // materno, nombres — orden ya extraído por OCR). Sin RFC. Si no hay nombre
+    // detectado, se usa el RFC como respaldo para no dejar el archivo sin nombre.
+    const baseNombre = (contrato.empleado.nombre ?? contrato.empleado.rfc)
+      .replace(/[^A-Za-zÁÉÍÓÚÜÑáéíóúüñ0-9 _-]/g, "")
+      .trim();
+    const nombreDescarga = `${baseNombre}.pdf`;
 
     res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Length", bytes.length);
+    res.setHeader("Accept-Ranges", "none");
     res.setHeader(
       "Content-Disposition",
       descargar
@@ -474,16 +609,7 @@ router.get("/:id/archivo", async (req: Request, res: Response): Promise<void> =>
         : `inline; filename="${nombreDescarga}"`,
     );
 
-    // Transmitir el archivo
-    const stream = fsSync.createReadStream(contrato.rutaArchivo);
-    stream.pipe(res);
-
-    stream.on("error", (err: Error) => {
-      console.error(`[contratos] Error al transmitir PDF id=${idRaw}: ${err.message}`);
-      if (!res.headersSent) {
-        res.status(500).json({ success: false, message: "Error al leer el archivo." });
-      }
-    });
+    res.end(bytes);
   } catch (err: unknown) {
     const mensaje = err instanceof Error ? err.message : "Error interno del servidor.";
     res.status(500).json({ success: false, message: mensaje });

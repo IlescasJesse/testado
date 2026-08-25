@@ -79,3 +79,30 @@ export interface ResumenDesbloqueo {
   desbloqueados?: number;
   errores?: ErrorBloqueo[];
 }
+
+// ── Bloqueo/Desbloqueo por lotes (progreso contrato por contrato) ───────────────
+
+export interface ResultadoAccion {
+  id: number;
+  rfc?: string | null;
+  nombre?: string | null;
+  ok: boolean;
+  mensaje?: string;
+}
+
+export interface ProgresoAccion {
+  total: number;
+  hechos: ResultadoAccion[];
+  completado: boolean;
+}
+
+export interface LoteAccionIniciado {
+  success: boolean;
+  loteId: string;
+  total: number;
+}
+
+export interface ResumenEliminarTrimestre {
+  success: boolean;
+  eliminados: number;
+}

@@ -48,7 +48,10 @@ function eliminarTemp(ruta: string): void {
  */
 export function qpdfDisponible(): boolean {
   try {
-    const resultado = spawnSync("qpdf", ["--version"], { stdio: "pipe" });
+    const resultado = spawnSync("qpdf", ["--version"], {
+      stdio: ["ignore", "pipe", "pipe"],
+      timeout: 5_000,
+    });
     return resultado.status === 0;
   } catch {
     return false;
@@ -89,8 +92,25 @@ export function bloquear(input: Buffer, ownerPwd: string): Buffer {
       rutaSalida,
     ];
 
-    const resultado = spawnSync("qpdf", args, { stdio: "pipe" });
+    // stdin en "ignore": si el PDF de entrada resulta estar ya cifrado (p.ej.
+    // por un estado inconsistente en BD), qpdf pide la contraseña por stdin en
+    // vez de fallar. Con stdin abierto y sin nada escrito ahí, el proceso se
+    // queda esperando para siempre y cuelga el slot de la cola de concurrencia
+    // indefinidamente — eso hacía que un lote nunca llegara al total. Con
+    // stdin ignorado, qpdf recibe EOF inmediato y falla limpio. `timeout` es
+    // un cinturón de seguridad adicional por si cuelga por otra razón.
+    const resultado = spawnSync("qpdf", args, {
+      stdio: ["ignore", "pipe", "pipe"],
+      timeout: 30_000,
+      killSignal: "SIGKILL",
+    });
 
+    if (resultado.error) {
+      throw new Error(`qpdf bloquear falló al ejecutar: ${resultado.error.message}`);
+    }
+    if (resultado.signal !== null) {
+      throw new Error(`qpdf bloquear no respondió a tiempo (timeout, señal ${resultado.signal})`);
+    }
     if (resultado.status !== 0) {
       const stderr = resultado.stderr?.toString("utf8") ?? "";
       throw new Error(`qpdf bloquear falló (código ${resultado.status}): ${stderr}`);
@@ -137,8 +157,21 @@ export function desbloquear(input: Buffer, ownerPwd: string): Buffer {
       rutaSalida,
     ];
 
-    const resultado = spawnSync("qpdf", args, { stdio: "pipe" });
+    // Mismo motivo que en bloquear(): stdin cerrado evita que qpdf se quede
+    // esperando input si por alguna razón pide confirmación interactiva, y el
+    // timeout es un límite duro para no colgar la cola de concurrencia.
+    const resultado = spawnSync("qpdf", args, {
+      stdio: ["ignore", "pipe", "pipe"],
+      timeout: 30_000,
+      killSignal: "SIGKILL",
+    });
 
+    if (resultado.error) {
+      throw new Error(`qpdf desbloquear falló al ejecutar: ${resultado.error.message}`);
+    }
+    if (resultado.signal !== null) {
+      throw new Error(`qpdf desbloquear no respondió a tiempo (timeout, señal ${resultado.signal})`);
+    }
     if (resultado.status !== 0) {
       const stderr = resultado.stderr?.toString("utf8") ?? "";
       throw new Error(`qpdf desbloquear falló (código ${resultado.status}): ${stderr}`);

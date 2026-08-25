@@ -9,11 +9,13 @@ import Box from "@mui/material/Box";
 import CloudUploadIcon from "@mui/icons-material/CloudUpload";
 import LockIcon from "@mui/icons-material/Lock";
 import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
+import DescriptionIcon from "@mui/icons-material/Description";
 import Link from "next/link";
 
 const rutas = [
   { href: "/", label: "Subir & Testar", icon: <CloudUploadIcon /> },
   { href: "/bloquear", label: "Bloquear", icon: <LockIcon /> },
+  { href: "/contratos", label: "Contratos", icon: <DescriptionIcon /> },
   { href: "/trimestres", label: "Trimestres", icon: <CalendarMonthIcon /> },
 ] as const;
 

@@ -41,7 +41,7 @@ type AppState = "idle" | "uploading" | "polling" | "done";
 
 export default function HomePage() {
   const [files, setFiles] = useState<File[]>([]);
-  const [anio, setAnio] = useState<string>("");
+  const [anio, setAnio] = useState<string>(String(new Date().getFullYear()));
   const [periodo, setPeriodo] = useState<string>("");
   const [appState, setAppState] = useState<AppState>("idle");
   const [error, setError] = useState<string | null>(null);
@@ -52,7 +52,6 @@ export default function HomePage() {
 
   const inputRef = useRef<HTMLInputElement>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const currentFilesRef = useRef<File[]>([]);
   const currentAnioRef = useRef<string>("");
   const currentPeriodoRef = useRef<string>("");
@@ -61,10 +60,6 @@ export default function HomePage() {
     if (intervalRef.current !== null) {
       clearInterval(intervalRef.current);
       intervalRef.current = null;
-    }
-    if (timeoutRef.current !== null) {
-      clearTimeout(timeoutRef.current);
-      timeoutRef.current = null;
     }
   }, []);
 
@@ -105,14 +100,9 @@ export default function HomePage() {
         }
       };
 
+      // Sin timeout: el lote sigue procesándose en el servidor pase lo que
+      // pase con el cliente, así que seguimos consultando hasta "completado".
       intervalRef.current = setInterval(poll, 1500);
-
-      // Timeout after 120 seconds
-      timeoutRef.current = setTimeout(() => {
-        stopPolling();
-        setError("Tiempo de espera agotado (120s). Intenta de nuevo.");
-        setAppState("done");
-      }, 120_000);
 
       // Run immediately
       poll();
@@ -206,7 +196,7 @@ export default function HomePage() {
   const handleReset = () => {
     stopPolling();
     setFiles([]);
-    setAnio("");
+    setAnio(String(new Date().getFullYear()));
     setPeriodo("");
     setAppState("idle");
     setError(null);
@@ -297,7 +287,7 @@ export default function HomePage() {
           <Grid container spacing={2} sx={{ mb: 2 }}>
             <Grid size={{ xs: 12, sm: 6 }}>
               <TextField
-                label="Año"
+                label="Ejercicio (Año)"
                 placeholder="Año (ej. 2025)"
                 type="number"
                 value={anio}

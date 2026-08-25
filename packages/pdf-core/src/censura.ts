@@ -528,7 +528,15 @@ async function detectarYCensurarFirmaUltimaPagina(
       }
     }
 
-    if (anchorImgY !== null && anchorImgX !== null) {
+    // La frase completa "EL PRESTADOR DE SERVICIOS" ocupa normalmente ≥ 8% del
+    // ancho de la imagen. Si tras la expansión el ancla sigue siendo diminuta
+    // (p. ej. tesseract solo detectó una comilla o fragmento suelto), la
+    // detección no es confiable: se descarta y se mide la firma por posición
+    // en vez de por texto (ver bloque "ancla plausible" más abajo).
+    const anchorPlausible =
+      anchorImgY !== null && anchorImgX !== null && anchorImgW >= imgW * 0.08;
+
+    if (anchorPlausible && anchorImgY !== null && anchorImgX !== null) {
       const anchorBottom = anchorImgY + anchorImgH;
 
       // Buscar nombre del empleado (server.js líneas 630-645)
@@ -549,11 +557,42 @@ async function detectarYCensurarFirmaUltimaPagina(
         }
       }
 
-      // Rectángulo que cubre SOLO la firma (server.js líneas 648-667)
+      // Rectángulo que cubre SOLO la firma. Piso mínimo de alto (8 % de la
+      // imagen) para no producir una franja casi invisible cuando la línea del
+      // nombre se detecta demasiado cerca del ancla (heurística frágil).
       const sigImgY = anchorBottom + 5;
-      const sigImgH = Math.max(20, nameImgYTop - 5 - sigImgY);
+      const sigImgH = Math.max(imgH * 0.08, nameImgYTop - 5 - sigImgY);
       const sigImgX = Math.max(0, anchorImgX - 5);
       const sigImgW = anchorImgW + 10;
+
+      const pdfBloqueX = sigImgX * scX;
+      const pdfBloqueY = pdfH - (sigImgY + sigImgH) * scY;
+      const pdfBloqueW = sigImgW * scX;
+      const pdfBloqueH = sigImgH * scY;
+
+      ultimaPagina.drawRectangle({
+        x: Math.max(0, pdfBloqueX),
+        y: Math.max(0, pdfBloqueY),
+        width: Math.min(pdfW - pdfBloqueX, pdfBloqueW),
+        height: Math.max(0, pdfBloqueH),
+        color: rgb(0, 0, 0),
+      });
+    } else if (anchorImgY !== null) {
+      // Ancla de texto encontrada (sabemos la altura aprox. de la línea
+      // "PRESTADOR DE SERVICIOS") pero no es confiable en ancho/alto. En vez
+      // de descartar toda la posición, se mide un recuadro de tamaño fijo
+      // debajo de esa línea — cubre la firma sin depender de una segunda
+      // detección de texto frágil.
+      console.warn(
+        "[censura] Ancla 'PRESTADOR' poco confiable en última página, censura por medición",
+      );
+      // Medidas calibradas contra contratos reales: la firma autógrafa (con
+      // rúbrica/lazos) ocupa ~23 % del alto de imagen entre el pie del
+      // encabezado "EL PRESTADOR DE SERVICIOS" y el nombre impreso debajo.
+      const sigImgY = anchorImgY + anchorImgH + imgH * 0.005;
+      const sigImgH = imgH * 0.24;
+      const sigImgX = Math.max(0, (anchorImgX ?? imgW * 0.2) - imgW * 0.05);
+      const sigImgW = imgW * 0.4;
 
       const pdfBloqueX = sigImgX * scX;
       const pdfBloqueY = pdfH - (sigImgY + sigImgH) * scY;
