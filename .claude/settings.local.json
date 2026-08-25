@@ -62,7 +62,14 @@
       "Bash(node scripts/_detectar-problemas.js)",
       "Bash(npm test *)",
       "Bash(where qpdf *)",
-      "Bash(python3 -c \"import json; json.load\\(open\\('.claude/settings.local.json'\\)\\)\")"
+      "Bash(python3 -c \"import json; json.load\\(open\\('.claude/settings.local.json'\\)\\)\")",
+      "Bash(scp \"/c/testado/.env\" jesse:/opt/app-gestora/testado/.env)",
+      "Bash(scp \"/c/testado/apps/web/.env.local\" jesse:/opt/app-gestora/testado/apps/web/.env.local)",
+      "Bash(scp \"/c/testado/.env\" jesse:~/testado.env)",
+      "Bash(scp \"/c/testado/apps/web/.env.local\" jesse:~/testado.web.env.local)",
+      "Bash(ssh jesse *)",
+      "Bash(ssh *)",
+      "Bash(npx patch-package *)"
     ]
   }
 }

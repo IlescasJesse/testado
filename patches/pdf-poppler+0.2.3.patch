@@ -1,0 +1,27 @@
+diff --git a/node_modules/pdf-poppler/index.js b/node_modules/pdf-poppler/index.js
+index ac24035..9584523 100644
+--- a/node_modules/pdf-poppler/index.js
++++ b/node_modules/pdf-poppler/index.js
+@@ -3,7 +3,7 @@ const path = require('path');
+ const {spawn} = require('child_process');
+ 
+ let platform = os.platform();
+-if (!['darwin', 'win32'].includes(platform)) {
++if (!['darwin', 'win32', 'linux'].includes(platform)) {
+     console.error(`${platform} is NOT supported.`);
+     process.exit(1);
+ }
+@@ -64,6 +64,13 @@ else if (platform === 'darwin') {
+     spawn('install_name_tool', ['-change', `/usr/local/Cellar/poppler/0.66.0/lib/libpoppler.77.dylib`, `${path.join(dyldPath, 'libpoppler.77.0.0.dylib')}`, `${path.join(popplerPath, 'pdftocairo')}`]);
+     spawn('install_name_tool', ['-change', `/usr/local/Cellar/poppler/0.66.0/lib/libpoppler.77.dylib`, `${path.join(dyldPath, 'libpoppler.77.0.0.dylib')}`, `${path.join(popplerPath, 'pdfimages')}`]);
+ }
++else if (platform === 'linux') {
++    // No hay binarios de poppler empaquetados para Linux en este módulo.
++    // Se usan los binarios del sistema (paquete poppler-utils), resueltos
++    // vía PATH: popplerPath vacío + nombre de comando sin separador de ruta
++    // hace que Node busque en PATH (uv_spawn en POSIX).
++    popplerPath = '';
++}
+ else {
+     console.error(`${platform} is NOT supported.`);
+     process.exit(1);
