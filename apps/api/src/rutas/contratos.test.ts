@@ -413,6 +413,34 @@ describe("POST /api/contratos/desbloquear", () => {
     expect(progreso.body.hechos).toHaveLength(1);
     expect(progreso.body.hechos[0].ok).toBe(true);
   });
+
+  it("desbloquea correctamente cuando la contraseña trae espacios accidentales", async () => {
+    const app = crearApp();
+
+    mockContrato.findUnique.mockResolvedValueOnce({
+      id: 3,
+      eliminado: false,
+      rutaArchivo: "/fake/bloqueado2.pdf",
+      estado: "BLOQUEADO",
+      empleado: { rfc: "WXYZ900101AB2", nombre: "ANA GÓMEZ" },
+    });
+    mockContrato.update.mockResolvedValueOnce({ id: 3, estado: "DESBLOQUEADO" });
+
+    const respuesta = await request(app)
+      .post("/api/contratos/desbloquear")
+      .send({ ids: [3], password: "  secreto123  " })
+      .expect(200);
+
+    expect(respuesta.body.success).toBe(true);
+
+    await new Promise((resolve) => setImmediate(resolve));
+    await new Promise((resolve) => setImmediate(resolve));
+
+    const updateArgs = mockContrato.update.mock.calls[0][0] as {
+      data: { estado: string };
+    };
+    expect(updateArgs.data.estado).toBe("DESBLOQUEADO");
+  });
 });
 
 describe("GET /api/contratos/:id/archivo", () => {

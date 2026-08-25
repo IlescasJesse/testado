@@ -443,16 +443,17 @@ router.post("/desbloquear", async (req: Request, res: Response): Promise<void> =
       return;
     }
 
-    const ownerPwd = process.env["QPDF_OWNER_PASSWORD"];
-    if (!ownerPwd) {
+    const ownerPwdRaw = process.env["QPDF_OWNER_PASSWORD"];
+    if (!ownerPwdRaw) {
       res.status(500).json({
         success: false,
         message: "QPDF_OWNER_PASSWORD no está configurado en el servidor.",
       });
       return;
     }
+    const ownerPwd = ownerPwdRaw.trim();
 
-    if (body.password !== ownerPwd) {
+    if (body.password.trim() !== ownerPwd) {
       res.status(401).json({
         success: false,
         message: "Contraseña incorrecta.",

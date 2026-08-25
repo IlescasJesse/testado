@@ -57,7 +57,9 @@
       "Bash(rmdir scripts *)",
       "Bash(pkill -f _detectar-problemas.js)",
       "Bash(rm -f mal-testados-test-list.json scripts/_detectar-test.js)",
-      "Bash(node scripts/_detectar-problemas.js)"
+      "Bash(node scripts/_detectar-problemas.js)",
+      "Bash(npm test *)",
+      "Bash(where qpdf *)"
     ]
   }
 }

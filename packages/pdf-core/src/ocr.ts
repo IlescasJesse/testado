@@ -156,22 +156,26 @@ function sinAcentos(s: string): string {
  * Extrae el RFC del texto completo OCR (ya en mayúsculas).
  * Prioridad: etiqueta contextual > patrón crudo > tokens TSV.
  */
-function extraerRFC(textoUpper: string, tokensTSV: string[]): string | null {
+export function extraerRFC(textoUpper: string, tokensTSV: string[]): string | null {
+  // Cada tramo se captura por separado, con un separador opcional (espacio o
+  // guion) entre ellos, para tolerar el OCR insertando un espacio/guion
+  // accidental en medio del RFC sin aflojar el conjunto de caracteres ni la
+  // longitud final (se sigue exigiendo 12–13 caracteres tras limpiar).
   const rfcPatterns: RegExp[] = [
     // Etiqueta RFC explícita con o sin separador
-    /(?:RFC|R\.F\.C\.|N[UÚ]MERO(?:\s+DE)?\s+RFC|N[UÚ]MERO\s*:\s*RFC)\s*[:\-]?\s*([A-ZÑ&]{3,4}\d{6}[A-Z0-9]{2,3})/i,
+    /(?:RFC|R\.F\.C\.|N[UÚ]MERO(?:\s+DE)?\s+RFC|N[UÚ]MERO\s*:\s*RFC)\s*[:\-]?\s*([A-ZÑ&]{3,4})[\s-]?(\d{6})[\s-]?([A-Z0-9]{2,3})/i,
     // "NÚMERO: RFCVALUE" (con dos puntos)
-    /(?:N[UÚ]MERO\s*:\s*)([A-ZÑ&]{3,4}\d{6}[A-Z0-9]{2,3})/i,
+    /(?:N[UÚ]MERO\s*:\s*)([A-ZÑ&]{3,4})[\s-]?(\d{6})[\s-]?([A-Z0-9]{2,3})/i,
     // "número RFCVALUE" (sólo espacio — formato típico en contratos de Oaxaca)
-    /(?:N[UÚ]MERO\s+)([A-ZÑ&]{3,4}\d{6}[A-Z0-9]{2,3})/i,
+    /(?:N[UÚ]MERO\s+)([A-ZÑ&]{3,4})[\s-]?(\d{6})[\s-]?([A-Z0-9]{2,3})/i,
     // RFC crudo sin contexto (fallback)
-    /([A-ZÑ&]{3,4}\d{6}[A-Z0-9]{2,3})/i,
+    /([A-ZÑ&]{3,4})[\s-]?(\d{6})[\s-]?([A-Z0-9]{2,3})/i,
   ];
 
   for (const pat of rfcPatterns) {
     const m = textoUpper.match(pat);
-    if (m?.[1]) {
-      const candidate = m[1].replace(/[^A-Z0-9Ñ&]/g, "").toUpperCase();
+    if (m?.[1] && m[2] && m[3]) {
+      const candidate = (m[1] + m[2] + m[3]).replace(/[^A-Z0-9Ñ&]/g, "").toUpperCase();
       if (candidate.length === 12 || candidate.length === 13) return candidate;
     }
   }
