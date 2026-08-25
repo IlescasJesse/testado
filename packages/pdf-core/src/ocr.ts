@@ -67,6 +67,45 @@ interface TesseractModule {
 
 // Nota: pdf-poppler está tipado en types/pdf-poppler.d.ts (ConvertOptions).
 
+// ── Resolución robusta del PNG generado por poppler ───────────────────────────
+/**
+ * Resuelve la ruta REAL del PNG que produjo pdf-poppler/pdftocairo.
+ *
+ * pdftocairo rellena con ceros el número de página al ancho del total de
+ * páginas del documento: un PDF de ≥10 páginas genera `prefijo-04.png` (no
+ * `prefijo-4.png`) y uno de ≥100 páginas `prefijo-004.png`. Asumir el nombre
+ * sin relleno hace fallar `fs.existsSync` y dispara "No se generó imagen" en
+ * contratos largos, aunque la conversión sí ocurrió.
+ *
+ * Estrategia: probar el nombre exacto (sin relleno); si no existe, escanear el
+ * directorio en busca de `prefijo-<ceros><pagina>.png`. El prefijo es único por
+ * llamada (Date.now()+random) y solo se convierte una página, así que habrá a
+ * lo sumo una coincidencia.
+ *
+ * @returns ruta absoluta del PNG, o null si no se encontró.
+ */
+export function resolverPngGenerado(
+  dir: string,
+  prefijo: string,
+  pagina1Based: number,
+): string | null {
+  const exacto = path.join(dir, `${prefijo}-${pagina1Based}.png`);
+  if (fs.existsSync(exacto)) return exacto;
+
+  let entradas: string[];
+  try {
+    entradas = fs.readdirSync(dir);
+  } catch {
+    return null;
+  }
+  const prefijoEsc = prefijo.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const re = new RegExp(`^${prefijoEsc}-0*${pagina1Based}\\.png$`);
+  for (const entrada of entradas) {
+    if (re.test(entrada)) return path.join(dir, entrada);
+  }
+  return null;
+}
+
 // ── Parámetros opcionales de detectarDatos ────────────────────────────────────
 
 export interface OpcionesOCR {
@@ -117,22 +156,26 @@ function sinAcentos(s: string): string {
  * Extrae el RFC del texto completo OCR (ya en mayúsculas).
  * Prioridad: etiqueta contextual > patrón crudo > tokens TSV.
  */
-function extraerRFC(textoUpper: string, tokensTSV: string[]): string | null {
+export function extraerRFC(textoUpper: string, tokensTSV: string[]): string | null {
+  // Cada tramo se captura por separado, con un separador opcional (espacio o
+  // guion) entre ellos, para tolerar el OCR insertando un espacio/guion
+  // accidental en medio del RFC sin aflojar el conjunto de caracteres ni la
+  // longitud final (se sigue exigiendo 12–13 caracteres tras limpiar).
   const rfcPatterns: RegExp[] = [
     // Etiqueta RFC explícita con o sin separador
-    /(?:RFC|R\.F\.C\.|N[UÚ]MERO(?:\s+DE)?\s+RFC|N[UÚ]MERO\s*:\s*RFC)\s*[:\-]?\s*([A-ZÑ&]{3,4}\d{6}[A-Z0-9]{2,3})/i,
+    /(?:RFC|R\.F\.C\.|N[UÚ]MERO(?:\s+DE)?\s+RFC|N[UÚ]MERO\s*:\s*RFC)\s*[:\-]?\s*([A-ZÑ&]{3,4})[\s-]?(\d{6})[\s-]?([A-Z0-9]{2,3})/i,
     // "NÚMERO: RFCVALUE" (con dos puntos)
-    /(?:N[UÚ]MERO\s*:\s*)([A-ZÑ&]{3,4}\d{6}[A-Z0-9]{2,3})/i,
+    /(?:N[UÚ]MERO\s*:\s*)([A-ZÑ&]{3,4})[\s-]?(\d{6})[\s-]?([A-Z0-9]{2,3})/i,
     // "número RFCVALUE" (sólo espacio — formato típico en contratos de Oaxaca)
-    /(?:N[UÚ]MERO\s+)([A-ZÑ&]{3,4}\d{6}[A-Z0-9]{2,3})/i,
+    /(?:N[UÚ]MERO\s+)([A-ZÑ&]{3,4})[\s-]?(\d{6})[\s-]?([A-Z0-9]{2,3})/i,
     // RFC crudo sin contexto (fallback)
-    /([A-ZÑ&]{3,4}\d{6}[A-Z0-9]{2,3})/i,
+    /([A-ZÑ&]{3,4})[\s-]?(\d{6})[\s-]?([A-Z0-9]{2,3})/i,
   ];
 
   for (const pat of rfcPatterns) {
     const m = textoUpper.match(pat);
-    if (m?.[1]) {
-      const candidate = m[1].replace(/[^A-Z0-9Ñ&]/g, "").toUpperCase();
+    if (m?.[1] && m[2] && m[3]) {
+      const candidate = (m[1] + m[2] + m[3]).replace(/[^A-Z0-9Ñ&]/g, "").toUpperCase();
       if (candidate.length === 12 || candidate.length === 13) return candidate;
     }
   }
@@ -333,7 +376,6 @@ async function ocrarPagina(
   tmpDir: string,
 ): Promise<string> {
   const prefijo = `ocr_${Date.now()}_${Math.random().toString(36).slice(2)}_p${pageIndex}`;
-  const imgPath = path.join(tmpDir, `${prefijo}-${pageIndex + 1}.png`);
 
   const popplerOpts: import("pdf-poppler").ConvertOptions = {
     format: "png",
@@ -343,11 +385,13 @@ async function ocrarPagina(
     scale: escala,
   };
 
+  let imgPath: string | null = null;
   try {
     await poppler.convert(tempPdfPath, popplerOpts);
 
-    if (!fs.existsSync(imgPath)) {
-      console.warn(`[ocr] No se generó imagen en ${imgPath} para página ${pageIndex + 1}`);
+    imgPath = resolverPngGenerado(tmpDir, prefijo, pageIndex + 1);
+    if (imgPath === null) {
+      console.warn(`[ocr] No se generó imagen (prefijo ${prefijo}) para página ${pageIndex + 1}`);
       return "";
     }
 
@@ -355,7 +399,7 @@ async function ocrarPagina(
     return await tesseract.recognize(imgPath, tesseractConfig);
   } finally {
     try {
-      if (fs.existsSync(imgPath)) fs.unlinkSync(imgPath);
+      if (imgPath !== null && fs.existsSync(imgPath)) fs.unlinkSync(imgPath);
     } catch {
       // ignorar error de limpieza
     }
@@ -393,8 +437,9 @@ export async function detectarDatos(
   const prefijoPdf = `ocr_${Date.now()}_${Math.random().toString(36).slice(2)}`;
   const tempPdfPath = path.join(tmpDir, `${prefijoPdf}.pdf`);
 
-  // Paths derivados de la convención de pdf-poppler para la página principal
-  const imgPathPrincipal = path.join(tmpDir, `${prefijoPdf}-${paginaIdx + 1}.png`);
+  // El nombre real del PNG se resuelve tras convertir (poppler rellena el número
+  // de página con ceros según el total de páginas — ver resolverPngGenerado).
+  let imgPathPrincipal: string | null = null;
   const tsvBasePath = path.join(tmpDir, `${prefijoPdf}_tsv`);
   const tsvPath = `${tsvBasePath}.tsv`;
 
@@ -413,8 +458,9 @@ export async function detectarDatos(
 
     await poppler.convert(tempPdfPath, popplerOptsPrincipal);
 
-    if (!fs.existsSync(imgPathPrincipal)) {
-      console.warn(`[ocr] No se generó imagen en ${imgPathPrincipal}`);
+    imgPathPrincipal = resolverPngGenerado(tmpDir, prefijoPdf, paginaIdx + 1);
+    if (imgPathPrincipal === null) {
+      console.warn(`[ocr] No se generó imagen (prefijo ${prefijoPdf}) para página ${paginaIdx + 1}`);
       return { rfc: null, nombre: null, fecha: null };
     }
 
@@ -497,7 +543,7 @@ export async function detectarDatos(
     // Limpiar temporales (errores de unlink no deben propagar)
     for (const p of [tempPdfPath, imgPathPrincipal, tsvPath]) {
       try {
-        if (fs.existsSync(p)) fs.unlinkSync(p);
+        if (p !== null && fs.existsSync(p)) fs.unlinkSync(p);
       } catch {
         // ignorar
       }

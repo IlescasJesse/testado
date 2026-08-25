@@ -33,31 +33,20 @@ vi.mock("node:fs/promises", () => ({
   default: {
     readFile: vi.fn().mockResolvedValue(Buffer.from("%PDF-1.4 mock")),
     writeFile: vi.fn().mockResolvedValue(undefined),
+    rename: vi.fn().mockResolvedValue(undefined),
     mkdir: vi.fn().mockResolvedValue(undefined),
     access: vi.fn().mockResolvedValue(undefined),
+    stat: vi.fn().mockResolvedValue({ size: 18 }),
+    unlink: vi.fn().mockResolvedValue(undefined),
   },
   readFile: vi.fn().mockResolvedValue(Buffer.from("%PDF-1.4 mock")),
   writeFile: vi.fn().mockResolvedValue(undefined),
+  rename: vi.fn().mockResolvedValue(undefined),
   mkdir: vi.fn().mockResolvedValue(undefined),
   access: vi.fn().mockResolvedValue(undefined),
+  stat: vi.fn().mockResolvedValue({ size: 18 }),
+  unlink: vi.fn().mockResolvedValue(undefined),
 }));
-
-// Mock node:fs (sync) para createReadStream usado en el endpoint /:id/archivo
-vi.mock("node:fs", async () => {
-  const { Readable } = await import("node:stream");
-  return {
-    default: {
-      createReadStream: vi.fn(() => {
-        const s = new Readable({ read() { this.push("%PDF-1.4 contenido"); this.push(null); } });
-        return s;
-      }),
-    },
-    createReadStream: vi.fn(() => {
-      const s = new Readable({ read() { this.push("%PDF-1.4 contenido"); this.push(null); } });
-      return s;
-    }),
-  };
-});
 
 vi.mock("@testado/pdf-core", () => ({
   qpdfDisponible: vi.fn(() => true),
@@ -192,13 +181,13 @@ describe("POST /api/contratos/testar", () => {
     expect(mockProcesarArchivo).toHaveBeenCalledTimes(2);
   });
 
-  it("responde 400 si periodo está fuera de rango (1-4)", async () => {
+  it("responde 400 si periodo está fuera de rango (1-5)", async () => {
     const app = crearApp();
 
     const respuesta = await request(app)
       .post("/api/contratos/testar")
       .field("anio", "2024")
-      .field("periodo", "5")
+      .field("periodo", "6")
       .attach("pdfs", Buffer.from("%PDF-1.4 test"), "test.pdf")
       .expect(400);
 
@@ -320,7 +309,7 @@ describe("POST /api/contratos/bloquear", () => {
     expect(respuesta.body.success).toBe(false);
   });
 
-  it("bloquea contratos y actualiza estado a BLOQUEADO", async () => {
+  it("responde de inmediato con loteId y bloquea en segundo plano", async () => {
     const app = crearApp();
     mockQpdfDisponible.mockReturnValueOnce(true);
 
@@ -329,6 +318,7 @@ describe("POST /api/contratos/bloquear", () => {
       eliminado: false,
       rutaArchivo: "/fake/contrato.pdf",
       estado: "TESTADO",
+      empleado: { rfc: "ABCD870101XY1", nombre: "JUAN PÉREZ" },
     });
     mockContrato.update.mockResolvedValueOnce({ id: 1, estado: "BLOQUEADO" });
 
@@ -338,15 +328,26 @@ describe("POST /api/contratos/bloquear", () => {
       .expect(200);
 
     expect(respuesta.body.success).toBe(true);
-    expect(respuesta.body.bloqueados).toBe(1);
-    expect(respuesta.body.errores).toHaveLength(0);
+    expect(typeof respuesta.body.loteId).toBe("string");
+    expect(respuesta.body.total).toBe(1);
 
-    // Verifica que se actualizó el estado
+    // Esperar el procesamiento en segundo plano (setImmediate)
+    await new Promise((resolve) => setImmediate(resolve));
+    await new Promise((resolve) => setImmediate(resolve));
+
     expect(mockContrato.update).toHaveBeenCalledOnce();
     const updateArgs = mockContrato.update.mock.calls[0][0] as {
       data: { estado: string };
     };
     expect(updateArgs.data.estado).toBe("BLOQUEADO");
+
+    const progreso = await request(app)
+      .get(`/api/contratos/bloquear/progreso?loteId=${respuesta.body.loteId}`)
+      .expect(200);
+
+    expect(progreso.body.completado).toBe(true);
+    expect(progreso.body.hechos).toHaveLength(1);
+    expect(progreso.body.hechos[0].ok).toBe(true);
   });
 });
 
@@ -375,7 +376,7 @@ describe("POST /api/contratos/desbloquear", () => {
     expect(respuesta.body.message).toMatch(/password/i);
   });
 
-  it("desbloquea contratos con la contraseña correcta", async () => {
+  it("responde de inmediato con loteId y desbloquea en segundo plano con la contraseña correcta", async () => {
     const app = crearApp();
 
     mockContrato.findUnique.mockResolvedValueOnce({
@@ -383,6 +384,7 @@ describe("POST /api/contratos/desbloquear", () => {
       eliminado: false,
       rutaArchivo: "/fake/bloqueado.pdf",
       estado: "BLOQUEADO",
+      empleado: { rfc: "WXYZ900101AB2", nombre: "ANA GÓMEZ" },
     });
     mockContrato.update.mockResolvedValueOnce({ id: 2, estado: "DESBLOQUEADO" });
 
@@ -392,7 +394,47 @@ describe("POST /api/contratos/desbloquear", () => {
       .expect(200);
 
     expect(respuesta.body.success).toBe(true);
-    expect(respuesta.body.desbloqueados).toBe(1);
+    expect(typeof respuesta.body.loteId).toBe("string");
+    expect(respuesta.body.total).toBe(1);
+
+    await new Promise((resolve) => setImmediate(resolve));
+    await new Promise((resolve) => setImmediate(resolve));
+
+    const updateArgs = mockContrato.update.mock.calls[0][0] as {
+      data: { estado: string };
+    };
+    expect(updateArgs.data.estado).toBe("DESBLOQUEADO");
+
+    const progreso = await request(app)
+      .get(`/api/contratos/desbloquear/progreso?loteId=${respuesta.body.loteId}`)
+      .expect(200);
+
+    expect(progreso.body.completado).toBe(true);
+    expect(progreso.body.hechos).toHaveLength(1);
+    expect(progreso.body.hechos[0].ok).toBe(true);
+  });
+
+  it("desbloquea correctamente cuando la contraseña trae espacios accidentales", async () => {
+    const app = crearApp();
+
+    mockContrato.findUnique.mockResolvedValueOnce({
+      id: 3,
+      eliminado: false,
+      rutaArchivo: "/fake/bloqueado2.pdf",
+      estado: "BLOQUEADO",
+      empleado: { rfc: "WXYZ900101AB2", nombre: "ANA GÓMEZ" },
+    });
+    mockContrato.update.mockResolvedValueOnce({ id: 3, estado: "DESBLOQUEADO" });
+
+    const respuesta = await request(app)
+      .post("/api/contratos/desbloquear")
+      .send({ ids: [3], password: "  secreto123  " })
+      .expect(200);
+
+    expect(respuesta.body.success).toBe(true);
+
+    await new Promise((resolve) => setImmediate(resolve));
+    await new Promise((resolve) => setImmediate(resolve));
 
     const updateArgs = mockContrato.update.mock.calls[0][0] as {
       data: { estado: string };
@@ -428,7 +470,7 @@ describe("GET /api/contratos/:id/archivo", () => {
       id: 11,
       eliminado: false,
       rutaArchivo: "/fake/contrato.pdf",
-      empleado: { rfc: "AEMJ890328B87" },
+      empleado: { rfc: "AEMJ890328B87", nombre: "ACEVEDO MESINAS JOSIMAR" },
       trimestre: { anio: 2026, periodo: 2 },
     });
 
@@ -437,7 +479,7 @@ describe("GET /api/contratos/:id/archivo", () => {
       .expect(200);
 
     expect(respuesta.headers["content-disposition"]).toMatch(/attachment/);
-    expect(respuesta.headers["content-disposition"]).toMatch(/AEMJ890328B87_2026T2\.pdf/);
+    expect(respuesta.headers["content-disposition"]).toMatch(/ACEVEDO MESINAS JOSIMAR\.pdf/);
   });
 
   it("responde 404 si el contrato no existe", async () => {

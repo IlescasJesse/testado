@@ -24,7 +24,7 @@ model Empleado {
 model Trimestre {
   id        Int        @id @default(autoincrement())
   anio      Int
-  periodo   Int        // 1=Ene-Mar, 2=Abr-Jun, 3=Jul-Sep, 4=Oct-Dic
+  periodo   Int        // 1=Ene-Mar, 2=Abr-Jun, 3=Jul-Sep, 4=Oct-Nov, 5=Dic
   contratos Contrato[]
 
   @@unique([anio, periodo])

@@ -28,6 +28,7 @@ import { Router, Request, Response } from "express";
 // Se importa como namespace y se hace el cast mínimo necesario.
 import * as archiverNs from "archiver";
 import type { Archiver, ArchiverOptions } from "archiver";
+import type { ResumenTrimestre } from "@testado/shared";
 import fs from "node:fs";
 import { prisma } from "../db.js";
 
@@ -46,17 +47,6 @@ interface GrupoContrato {
   trimestreId: number;
   estado: "TESTADO" | "BLOQUEADO" | "DESBLOQUEADO" | "ERROR";
   _count: { _all: number };
-}
-
-/** Forma de cada trimestre devuelto por GET / */
-interface ResumenTrimestre {
-  anio: number;
-  periodo: number;
-  total: number;
-  testados: number;
-  bloqueados: number;
-  desbloqueados: number;
-  errores: number;
 }
 
 // ── 1. GET / — Lista trimestres con conteos por estado ────────────────────────
@@ -158,21 +148,21 @@ router.get("/:anio/:periodo/respaldo", async (req: Request, res: Response): Prom
       !Number.isInteger(periodo) ||
       isNaN(periodo) ||
       periodo < 1 ||
-      periodo > 4
+      periodo > 5
     ) {
       res.status(400).json({
         success: false,
         message:
-          "Los parámetros anio y periodo deben ser enteros válidos (periodo: 1–4).",
+          "Los parámetros anio y periodo deben ser enteros válidos (periodo: 1–5).",
       });
       return;
     }
 
-    // Consultar contratos BLOQUEADOS del trimestre (no eliminados)
+    // Consultar contratos del trimestre (bloqueados o desbloqueados, no eliminados)
     const contratos = await prisma.contrato.findMany({
       where: {
         eliminado: false,
-        estado: "BLOQUEADO",
+        estado: { in: ["BLOQUEADO", "DESBLOQUEADO"] },
         trimestre: { anio, periodo },
       },
       include: {
@@ -181,16 +171,19 @@ router.get("/:anio/:periodo/respaldo", async (req: Request, res: Response): Prom
       orderBy: { procesadoEn: "asc" },
     });
 
-    // Preparar headers y stream ZIP
+    // Se transmite el ZIP directo a la respuesta (sin buffer previo en disco).
+    // Los PDFs ya vienen comprimidos por el propio formato: recomprimirlos con
+    // zlib nivel 9 no ahorra espacio y, con lotes grandes (cientos de MB o
+    // varios GB), bloqueaba minutos SIN mandar un solo byte al cliente — el
+    // navegador veía "en blanco" y terminaba en timeout. `store: true` evita
+    // recomprimir cada entrada: el ZIP se arma a velocidad de disco, no de
+    // zlib, y el cliente recibe bytes de inmediato.
+    const archive = archiverFactory("zip", { store: true });
+
     res.attachment(`respaldo_${anio}_T${periodo}.zip`);
     res.setHeader("Content-Type", "application/zip");
 
-    const archive = archiverFactory("zip", { zlib: { level: 9 } });
-
-    // Propagar errores de archiver al cliente (sin lanzar)
     archive.on("error", (err: Error) => {
-      // Si ya se enviaron headers no podemos cambiar el código, pero al menos
-      // finalizamos la respuesta para no dejar al cliente colgado.
       if (!res.headersSent) {
         res.status(500).json({ success: false, message: err.message });
       } else {
@@ -203,27 +196,34 @@ router.get("/:anio/:periodo/respaldo", async (req: Request, res: Response): Prom
     if (contratos.length === 0) {
       // ZIP vacío con LEEME.txt — el cliente recibe siempre un ZIP válido
       archive.append(
-        `No hay contratos BLOQUEADOS en el trimestre ${anio} T${periodo}.\n`,
+        `No hay contratos bloqueados o desbloqueados en el trimestre ${anio} T${periodo}.\n`,
         { name: "LEEME.txt" },
       );
     } else {
       // Agregar cada PDF bloqueado al ZIP
       const lineasManifiesto: string[] = [
-        `Manifiesto de respaldo — Trimestre ${anio} T${periodo}`,
+        `Manifiesto de respaldo — Trimestre ${anio} T${periodo} (bloqueados y desbloqueados)`,
         `Generado: ${new Date().toISOString()}`,
         "─────────────────────────────────────────",
       ];
+
+      // Nombres duplicados dentro del ZIP (mismo empleado, distintas versiones)
+      // se desambiguan agregando " (2)", " (3)", etc.
+      const nombresUsados = new Map<string, number>();
 
       for (const contrato of contratos) {
         const rfc = contrato.empleado.rfc;
         const nombre = contrato.empleado.nombre ?? "SIN_NOMBRE";
         const version = contrato.version;
-        const nombreArchivo = contrato.nombreArchivo;
 
-        // Nombre legible en el ZIP: RFC_nombreOriginal (o RFC_vN.pdf si nombreArchivo vacío)
-        const nombreEnZip = nombreArchivo
-          ? `${rfc}_${nombreArchivo}`
-          : `${rfc}_v${version}.pdf`;
+        // Nombre legible en el ZIP: NOMBRE COMPLETO.pdf (apellido paterno, apellido
+        // materno, nombres). Sin RFC. Si no hay nombre detectado, se usa el RFC.
+        const baseNombre = (contrato.empleado.nombre ?? rfc)
+          .replace(/[^A-Za-zÁÉÍÓÚÜÑáéíóúüñ0-9 _-]/g, "")
+          .trim();
+        const usos = nombresUsados.get(baseNombre) ?? 0;
+        nombresUsados.set(baseNombre, usos + 1);
+        const nombreEnZip = usos === 0 ? `${baseNombre}.pdf` : `${baseNombre} (${usos + 1}).pdf`;
 
         // Solo agregar si el archivo existe en disco
         if (fs.existsSync(contrato.rutaArchivo)) {
@@ -248,6 +248,48 @@ router.get("/:anio/:periodo/respaldo", async (req: Request, res: Response): Prom
     } else {
       res.end();
     }
+  }
+});
+
+// ── 3. POST /:anio/:periodo/eliminar — soft-delete de TODOS los contratos ────
+// del trimestre (marca eliminado=true; no borra los PDFs de disco, igual que
+// POST /api/contratos/:id/eliminar de un solo contrato).
+
+router.post("/:anio/:periodo/eliminar", async (req: Request, res: Response): Promise<void> => {
+  try {
+    const anioRaw = String(req.params["anio"] ?? "");
+    const periodoRaw = String(req.params["periodo"] ?? "");
+
+    const anio = parseInt(anioRaw, 10);
+    const periodo = parseInt(periodoRaw, 10);
+
+    if (
+      !Number.isInteger(anio) ||
+      isNaN(anio) ||
+      !Number.isInteger(periodo) ||
+      isNaN(periodo) ||
+      periodo < 1 ||
+      periodo > 5
+    ) {
+      res.status(400).json({
+        success: false,
+        message: "Los parámetros anio y periodo deben ser enteros válidos (periodo: 1–5).",
+      });
+      return;
+    }
+
+    const resultado = await prisma.contrato.updateMany({
+      where: {
+        eliminado: false,
+        trimestre: { anio, periodo },
+      },
+      data: { eliminado: true },
+    });
+
+    res.json({ success: true, eliminados: resultado.count });
+  } catch (err: unknown) {
+    const mensaje = err instanceof Error ? err.message : "Error interno del servidor.";
+    res.status(500).json({ success: false, message: mensaje });
   }
 });
 

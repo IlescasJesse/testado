@@ -61,6 +61,7 @@ vi.mock("../db.js", () => ({
     contrato: {
       findFirst: vi.fn(),
       findMany: vi.fn(),
+      aggregate: vi.fn(),
       create: vi.fn(),
       updateMany: vi.fn(),
       upsert: vi.fn(),
@@ -110,6 +111,7 @@ const CONTRATO_MOCK = {
 const mockContrato = prisma.contrato as unknown as {
   findFirst: ReturnType<typeof vi.fn>;
   findMany: ReturnType<typeof vi.fn>;
+  aggregate: ReturnType<typeof vi.fn>;
   create: ReturnType<typeof vi.fn>;
   updateMany: ReturnType<typeof vi.fn>;
 };
@@ -154,6 +156,8 @@ describe("procesarArchivo", () => {
       mockEmpleado.upsert.mockResolvedValueOnce(EMPLEADO_MOCK);
       mockTrimestre.upsert.mockResolvedValueOnce(TRIMESTRE_MOCK);
       mockContrato.findMany.mockResolvedValueOnce([CONTRATO_MOCK]);
+      // No se mockea aggregate: con resolucion=undefined no se crea contrato,
+      // así que el helper (y su aggregate) no se invoca.
 
       const resultado = await procesarArchivo(BUF_PRUEBA, NOMBRE_ARCHIVO);
 
@@ -172,6 +176,7 @@ describe("procesarArchivo", () => {
       mockEmpleado.upsert.mockResolvedValueOnce(EMPLEADO_MOCK);
       mockTrimestre.upsert.mockResolvedValueOnce(TRIMESTRE_MOCK);
       mockContrato.findMany.mockResolvedValueOnce([CONTRATO_MOCK]);
+      // resolucion=omitir tampoco crea contrato → aggregate no se invoca.
 
       const resultado = await procesarArchivo(BUF_PRUEBA, NOMBRE_ARCHIVO, {
         resolucionDuplicado: "omitir",
@@ -190,6 +195,7 @@ describe("procesarArchivo", () => {
       mockEmpleado.upsert.mockResolvedValueOnce(EMPLEADO_MOCK);
       mockTrimestre.upsert.mockResolvedValueOnce(TRIMESTRE_MOCK);
       mockContrato.findMany.mockResolvedValueOnce([]);
+      mockContrato.aggregate.mockResolvedValueOnce({ _max: { version: null } });
       mockContrato.create.mockResolvedValueOnce({ ...CONTRATO_MOCK, id: 99 });
 
       // Usamos un nombre de archivo que coincida con el OCR para que el cross-check
@@ -232,6 +238,7 @@ describe("procesarArchivo", () => {
       mockEmpleado.upsert.mockResolvedValueOnce({ id: 2, rfc: "XYZW900212AB3", nombre: "ANA GARCÍA" });
       mockTrimestre.upsert.mockResolvedValueOnce({ id: 2, anio: 2024, periodo: 2 });
       mockContrato.findMany.mockResolvedValueOnce([]);
+      mockContrato.aggregate.mockResolvedValueOnce({ _max: { version: null } });
       mockContrato.create.mockResolvedValueOnce({ ...CONTRATO_MOCK, id: 55 });
 
       const resultado = await procesarArchivo(BUF_PRUEBA, NOMBRE_ARCHIVO);
@@ -268,6 +275,7 @@ describe("procesarArchivo", () => {
       mockEmpleado.upsert.mockResolvedValueOnce(EMPLEADO_MOCK);
       mockTrimestre.upsert.mockResolvedValueOnce({ id: 3, anio: 2023, periodo: 4 });
       mockContrato.findMany.mockResolvedValueOnce([]);
+      mockContrato.aggregate.mockResolvedValueOnce({ _max: { version: null } });
       mockContrato.create.mockResolvedValueOnce({ ...CONTRATO_MOCK, id: 77 });
 
       const resultado = await procesarArchivo(BUF_PRUEBA, NOMBRE_ARCHIVO, {
@@ -286,6 +294,7 @@ describe("procesarArchivo", () => {
       mockEmpleado.upsert.mockResolvedValueOnce(EMPLEADO_MOCK);
       mockTrimestre.upsert.mockResolvedValueOnce(TRIMESTRE_MOCK);
       mockContrato.findMany.mockResolvedValueOnce([CONTRATO_MOCK]); // hay v1
+      mockContrato.aggregate.mockResolvedValueOnce({ _max: { version: 1 } });
       mockContrato.create.mockResolvedValueOnce({ ...CONTRATO_MOCK, id: 100, version: 2 });
 
       const resultado = await procesarArchivo(BUF_PRUEBA, NOMBRE_ARCHIVO, {
@@ -313,6 +322,7 @@ describe("procesarArchivo", () => {
       mockEmpleado.upsert.mockResolvedValueOnce(EMPLEADO_MOCK);
       mockTrimestre.upsert.mockResolvedValueOnce(TRIMESTRE_MOCK);
       mockContrato.findMany.mockResolvedValueOnce([CONTRATO_MOCK]);
+      mockContrato.aggregate.mockResolvedValueOnce({ _max: { version: 1 } });
       mockContrato.updateMany.mockResolvedValueOnce({ count: 1 });
       mockContrato.create.mockResolvedValueOnce({ ...CONTRATO_MOCK, id: 101, version: 2 });
 
@@ -334,6 +344,55 @@ describe("procesarArchivo", () => {
     });
   });
 
+  // ── CONCURRENCIA: colisión de versión (P2002) ──────────────────────────────
+  describe("resiliencia a colisión de versión bajo concurrencia", () => {
+    it("reintenta con versión recalculada cuando create falla con P2002", async () => {
+      mockContrato.findFirst.mockResolvedValueOnce(null);
+      mockEmpleado.upsert.mockResolvedValueOnce(EMPLEADO_MOCK);
+      mockTrimestre.upsert.mockResolvedValueOnce(TRIMESTRE_MOCK);
+      mockContrato.findMany.mockResolvedValueOnce([]); // sin duplicado activo
+
+      // 1er intento: max=0 → intenta v1 y otro proceso ya lo tomó → P2002.
+      // 2º intento: max=1 (lo creó el otro proceso) → v2 → éxito.
+      mockContrato.aggregate
+        .mockResolvedValueOnce({ _max: { version: 0 } })
+        .mockResolvedValueOnce({ _max: { version: 1 } });
+
+      const errP2002 = Object.assign(new Error("Unique constraint failed"), {
+        code: "P2002",
+      });
+      mockContrato.create
+        .mockRejectedValueOnce(errP2002)
+        .mockResolvedValueOnce({ ...CONTRATO_MOCK, id: 300, version: 2 });
+
+      const resultado = await procesarArchivo(BUF_PRUEBA, "JUAN PEREZ LOPEZ.pdf");
+
+      expect(resultado.estado).toBe("testado");
+      expect(resultado.version).toBe(2);
+      // Debe haber intentado crear dos veces (v1 falló, v2 ok).
+      expect(mockContrato.create).toHaveBeenCalledTimes(2);
+      expect(mockContrato.aggregate).toHaveBeenCalledTimes(2);
+      const segundaLlamada = mockContrato.create.mock.calls[1][0] as {
+        data: { version: number };
+      };
+      expect(segundaLlamada.data.version).toBe(2);
+    });
+
+    it("propaga errores que NO son P2002 sin reintentar", async () => {
+      mockContrato.findFirst.mockResolvedValueOnce(null);
+      mockEmpleado.upsert.mockResolvedValueOnce(EMPLEADO_MOCK);
+      mockTrimestre.upsert.mockResolvedValueOnce(TRIMESTRE_MOCK);
+      mockContrato.findMany.mockResolvedValueOnce([]);
+      mockContrato.aggregate.mockResolvedValueOnce({ _max: { version: 0 } });
+      mockContrato.create.mockRejectedValueOnce(new Error("DB caída"));
+
+      const resultado = await procesarArchivo(BUF_PRUEBA, "JUAN PEREZ LOPEZ.pdf");
+
+      expect(resultado.estado).toBe("error");
+      expect(mockContrato.create).toHaveBeenCalledTimes(1); // sin reintento
+    });
+  });
+
   // ── RFC NULO: pseudo-RFC ─────────────────────────────────────────────────────
   describe("cuando el OCR no detecta RFC", () => {
     it("genera pseudo-RFC SINRFC-<hash8> y usa nombre del archivo como fallback", async () => {
@@ -346,6 +405,7 @@ describe("procesarArchivo", () => {
 
       mockContrato.findFirst.mockResolvedValueOnce(null);
       mockContrato.findMany.mockResolvedValueOnce([]);
+      mockContrato.aggregate.mockResolvedValueOnce({ _max: { version: null } });
       mockEmpleado.upsert.mockResolvedValueOnce({
         id: 3,
         rfc: "SINRFC-AABBCCDD",

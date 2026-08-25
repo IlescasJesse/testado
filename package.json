@@ -20,7 +20,6 @@
     "app": "npm run build && npm run start"
   },
   "devDependencies": {
-    "@prisma/client": "^5.22.0",
     "@types/node": "^26.0.0",
     "@types/supertest": "^7.2.0",
     "concurrently": "^10.0.3",

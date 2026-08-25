@@ -20,6 +20,8 @@ import {
   ListItem,
   ListItemIcon,
   ListItemText,
+  Menu,
+  MenuItem,
   TextField,
   Tooltip,
   Typography,
@@ -33,17 +35,24 @@ import ArchiveIcon from "@mui/icons-material/Archive";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import DownloadIcon from "@mui/icons-material/Download";
+import MoreVertIcon from "@mui/icons-material/MoreVert";
+import DeleteForeverIcon from "@mui/icons-material/DeleteForever";
 import {
   apiGet,
   apiPost,
   urlRespaldo,
   urlArchivo,
 } from "@/lib/api";
-import type { ContratoDTO, ResumenTrimestre, ResumenDesbloqueo } from "@/lib/api";
+import type {
+  ContratoDTO,
+  ResumenTrimestre,
+  ResumenDesbloqueo,
+  ResumenEliminarTrimestre,
+} from "@/lib/api";
 import VisorPdf from "@/components/VisorPdf";
 
 const periodoLabel = (p: number): string =>
-  (["", "Enero–Marzo", "Abril–Junio", "Julio–Septiembre", "Octubre–Diciembre"] as const)[p] ??
+  (["", "Enero–Marzo", "Abril–Junio", "Julio–Septiembre", "Octubre–Noviembre", "Diciembre"] as const)[p] ??
   p.toString();
 
 interface DialogState {
@@ -68,6 +77,15 @@ export default function TrimestresPage() {
   const [submitting, setSubmitting] = useState(false);
   const [visorId, setVisorId] = useState<number | null>(null);
   const [visorTitulo, setVisorTitulo] = useState<string>("");
+
+  // Menú de 3 puntos por card + eliminar trimestre completo
+  const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
+  const [menuTrimestre, setMenuTrimestre] = useState<ResumenTrimestre | null>(null);
+  const [eliminarDialog, setEliminarDialog] = useState<{ anio: number; periodo: number; total: number } | null>(
+    null,
+  );
+  const [eliminarSubmitting, setEliminarSubmitting] = useState(false);
+  const [eliminarError, setEliminarError] = useState<string | null>(null);
 
   const cargarTrimestres = useCallback(async () => {
     setLoading(true);
@@ -117,6 +135,69 @@ export default function TrimestresPage() {
 
   const handleCerrarDialog = () => {
     setDialogState(null);
+  };
+
+  // ── Menú de 3 puntos ──────────────────────────────────────────────────────────
+
+  const handleAbrirMenu = (e: React.MouseEvent<HTMLElement>, t: ResumenTrimestre) => {
+    setMenuAnchor(e.currentTarget);
+    setMenuTrimestre(t);
+  };
+
+  const handleCerrarMenu = () => {
+    setMenuAnchor(null);
+    setMenuTrimestre(null);
+  };
+
+  const handleMenuDesbloquear = () => {
+    if (menuTrimestre) {
+      handleAbrirDialog(menuTrimestre.anio, menuTrimestre.periodo);
+    }
+    handleCerrarMenu();
+  };
+
+  const handleMenuEliminarTrimestre = () => {
+    if (menuTrimestre) {
+      setEliminarError(null);
+      setEliminarDialog({
+        anio: menuTrimestre.anio,
+        periodo: menuTrimestre.periodo,
+        total: menuTrimestre.total,
+      });
+    }
+    handleCerrarMenu();
+  };
+
+  const handleCerrarEliminarDialog = () => {
+    if (eliminarSubmitting) return;
+    setEliminarDialog(null);
+    setEliminarError(null);
+  };
+
+  const handleConfirmarEliminarTrimestre = async () => {
+    if (!eliminarDialog) return;
+    setEliminarSubmitting(true);
+    setEliminarError(null);
+
+    try {
+      const result = await apiPost<ResumenEliminarTrimestre | { success: false; message?: string }>(
+        `/api/trimestres/${eliminarDialog.anio}/${eliminarDialog.periodo}/eliminar`,
+        {},
+      );
+
+      if (!result.data.success) {
+        const errData = result.data as { success: false; message?: string };
+        setEliminarError(errData.message ?? "Error al eliminar el trimestre");
+        return;
+      }
+
+      setEliminarDialog(null);
+      await cargarTrimestres();
+    } catch (err) {
+      setEliminarError(err instanceof Error ? err.message : "Error al eliminar el trimestre");
+    } finally {
+      setEliminarSubmitting(false);
+    }
   };
 
   const handleToggleId = (id: number) => {
@@ -215,9 +296,16 @@ export default function TrimestresPage() {
                   {/* Card title */}
                   <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 2 }}>
                     <CalendarMonthIcon color="action" />
-                    <Typography variant="h6" fontWeight={600}>
+                    <Typography variant="h6" fontWeight={600} sx={{ flex: 1 }}>
                       Trimestre {t.periodo} — {t.anio}
                     </Typography>
+                    <IconButton
+                      size="small"
+                      aria-label="Más opciones"
+                      onClick={(e) => handleAbrirMenu(e, t)}
+                    >
+                      <MoreVertIcon fontSize="small" />
+                    </IconButton>
                   </Box>
 
                   <Typography
@@ -275,29 +363,84 @@ export default function TrimestresPage() {
                 </CardContent>
 
                 <CardActions sx={{ px: 2, pb: 2, gap: 1, flexWrap: "wrap" }}>
-                  <Button
-                    size="small"
-                    variant="outlined"
-                    startIcon={<ArchiveIcon />}
-                    onClick={() => window.open(urlRespaldo(t.anio, t.periodo), "_blank")}
+                  <Tooltip
+                    title={
+                      t.bloqueados + t.desbloqueados === 0
+                        ? "No hay contratos bloqueados ni desbloqueados en este trimestre"
+                        : ""
+                    }
                   >
-                    Descargar respaldo
-                  </Button>
-                  <Button
-                    size="small"
-                    variant="contained"
-                    startIcon={<LockOpenIcon />}
-                    disabled={t.bloqueados === 0}
-                    onClick={() => handleAbrirDialog(t.anio, t.periodo)}
-                  >
-                    Desbloquear
-                  </Button>
+                    <span>
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        startIcon={<ArchiveIcon />}
+                        disabled={t.bloqueados + t.desbloqueados === 0}
+                        onClick={() => window.open(urlRespaldo(t.anio, t.periodo), "_blank")}
+                      >
+                        Descargar respaldo
+                      </Button>
+                    </span>
+                  </Tooltip>
                 </CardActions>
               </Card>
             </Grid>
           ))}
         </Grid>
       )}
+
+      {/* Menú de 3 puntos (Desbloquear / Eliminar trimestre) */}
+      <Menu anchorEl={menuAnchor} open={Boolean(menuAnchor)} onClose={handleCerrarMenu}>
+        <MenuItem onClick={handleMenuDesbloquear} disabled={!menuTrimestre || menuTrimestre.bloqueados === 0}>
+          <ListItemIcon>
+            <LockOpenIcon fontSize="small" />
+          </ListItemIcon>
+          Desbloquear
+        </MenuItem>
+        <MenuItem onClick={handleMenuEliminarTrimestre} disabled={!menuTrimestre || menuTrimestre.total === 0}>
+          <ListItemIcon>
+            <DeleteForeverIcon fontSize="small" color="error" />
+          </ListItemIcon>
+          Eliminar trimestre
+        </MenuItem>
+      </Menu>
+
+      {/* Confirmación de eliminar trimestre completo */}
+      <Dialog open={eliminarDialog !== null} onClose={handleCerrarEliminarDialog} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+          <DeleteForeverIcon color="error" />
+          Eliminar trimestre completo
+        </DialogTitle>
+        <DialogContent>
+          {eliminarDialog && (
+            <Typography variant="body2">
+              Se eliminarán los <strong>{eliminarDialog.total} contratos</strong> del Trimestre{" "}
+              {eliminarDialog.periodo} — {eliminarDialog.anio} (testados, bloqueados y desbloqueados).
+              Los PDFs no se borran de disco, pero dejarán de aparecer en el sistema. Esta acción no se
+              puede deshacer desde aquí.
+            </Typography>
+          )}
+          {eliminarError && (
+            <Alert severity="error" sx={{ mt: 2 }}>
+              {eliminarError}
+            </Alert>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCerrarEliminarDialog} disabled={eliminarSubmitting}>
+            Cancelar
+          </Button>
+          <Button
+            variant="contained"
+            color="error"
+            startIcon={<DeleteForeverIcon />}
+            onClick={handleConfirmarEliminarTrimestre}
+            disabled={eliminarSubmitting}
+          >
+            {eliminarSubmitting ? "Eliminando..." : "Eliminar trimestre"}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Visor PDF */}
       {visorId !== null && (

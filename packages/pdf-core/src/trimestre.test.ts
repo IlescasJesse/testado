@@ -7,50 +7,41 @@ import { trimestreDeFecha } from "./trimestre.js";
 // de mes son exactos independientemente del TZ del servidor.
 
 describe("trimestreDeFecha", () => {
-  // Caso base del enunciado (adaptado al constructor local para evitar desfase UTC).
-  // Las cadenas ISO se interpretan como UTC medianoche; en UTC-6 (Oaxaca)
-  // "2026-04-01" se convierte en 2026-03-31T18:00 local → T1.
-  // Solución: usar new Date(anio, mes0, dia) que ya opera en hora local.
-  it("ubica marzo en T1 y abril en T2", () => {
+  it("ubica marzo en T1, octubre en T4 y diciembre en T5", () => {
     expect(trimestreDeFecha(new Date(2026, 2, 15))).toEqual({ anio: 2026, periodo: 1 });
     expect(trimestreDeFecha(new Date(2026, 3, 1))).toEqual({ anio: 2026, periodo: 2 });
-    expect(trimestreDeFecha(new Date(2026, 11, 31))).toEqual({ anio: 2026, periodo: 4 });
+    expect(trimestreDeFecha(new Date(2026, 9, 15))).toEqual({ anio: 2026, periodo: 4 });
+    expect(trimestreDeFecha(new Date(2026, 11, 31))).toEqual({ anio: 2026, periodo: 5 });
   });
 
   // T1: enero – marzo (meses 0-2)
-  it("T1 — primer día de enero", () => {
+  it("T1 — enero a marzo", () => {
     expect(trimestreDeFecha(new Date(2026, 0, 1))).toEqual({ anio: 2026, periodo: 1 });
-  });
-
-  it("T1 — último día de marzo", () => {
     expect(trimestreDeFecha(new Date(2026, 2, 31))).toEqual({ anio: 2026, periodo: 1 });
   });
 
   // T2: abril – junio (meses 3-5)
-  it("T2 — primer día de abril", () => {
+  it("T2 — abril a junio", () => {
     expect(trimestreDeFecha(new Date(2026, 3, 1))).toEqual({ anio: 2026, periodo: 2 });
-  });
-
-  it("T2 — último día de junio", () => {
     expect(trimestreDeFecha(new Date(2026, 5, 30))).toEqual({ anio: 2026, periodo: 2 });
   });
 
   // T3: julio – septiembre (meses 6-8)
-  it("T3 — primer día de julio", () => {
+  it("T3 — julio a septiembre", () => {
     expect(trimestreDeFecha(new Date(2026, 6, 1))).toEqual({ anio: 2026, periodo: 3 });
-  });
-
-  it("T3 — último día de septiembre", () => {
     expect(trimestreDeFecha(new Date(2026, 8, 30))).toEqual({ anio: 2026, periodo: 3 });
   });
 
-  // T4: octubre – diciembre (meses 9-11)
-  it("T4 — primer día de octubre", () => {
+  // T4: octubre – noviembre (meses 9-10)
+  it("T4 — octubre a noviembre", () => {
     expect(trimestreDeFecha(new Date(2026, 9, 1))).toEqual({ anio: 2026, periodo: 4 });
+    expect(trimestreDeFecha(new Date(2026, 10, 30))).toEqual({ anio: 2026, periodo: 4 });
   });
 
-  it("T4 — último día de diciembre", () => {
-    expect(trimestreDeFecha(new Date(2026, 11, 31))).toEqual({ anio: 2026, periodo: 4 });
+  // T5: diciembre (mes 11)
+  it("T5 — diciembre", () => {
+    expect(trimestreDeFecha(new Date(2026, 11, 1))).toEqual({ anio: 2026, periodo: 5 });
+    expect(trimestreDeFecha(new Date(2026, 11, 31))).toEqual({ anio: 2026, periodo: 5 });
   });
 
   // Año correcto se preserva

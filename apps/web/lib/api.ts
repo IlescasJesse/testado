@@ -1,51 +1,8 @@
-import type { ContratoDTO, Estado, ResumenLote } from "@testado/shared";
+import type { ContratoDTO, Estado, ResumenLote, ResultadoProcesar, ProgresoLote, LoteIniciado, ResumenTrimestre, ResumenBloqueo, ResumenDesbloqueo, ResultadoAccion, ProgresoAccion, LoteAccionIniciado, ResumenEliminarTrimestre } from "@testado/shared";
 
-export type { ContratoDTO, Estado, ResumenLote };
+export type { ContratoDTO, Estado, ResumenLote, ResultadoProcesar, ProgresoLote, LoteIniciado, ResumenTrimestre, ResumenBloqueo, ResumenDesbloqueo, ResultadoAccion, ProgresoAccion, LoteAccionIniciado, ResumenEliminarTrimestre };
 
-export interface ResultadoProcesar {
-  estado: "testado" | "duplicado" | "cache" | "error";
-  contratoId?: number;
-  rfc?: string;
-  nombre?: string;
-  trimestre?: { anio: number; periodo: number };
-  version?: number;
-  mensaje?: string;
-}
-
-export interface ProgresoLote {
-  total: number;
-  hechos: ResultadoProcesar[];
-  completado: boolean;
-}
-
-export interface LoteIniciado {
-  success: boolean;
-  loteId: string;
-  total: number;
-  processing: boolean;
-}
-
-export interface ResumenTrimestre {
-  anio: number;
-  periodo: number;
-  total: number;
-  testados: number;
-  bloqueados: number;
-  desbloqueados: number;
-  errores: number;
-}
-
-export interface ResumenBloqueo {
-  bloqueados: number;
-  errores: string[];
-}
-
-export interface ResumenDesbloqueo {
-  desbloqueados?: number;
-  errores?: string[];
-}
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
+const API_URL = "";
 
 export async function apiGet<T>(path: string): Promise<T> {
   const res = await fetch(`${API_URL}${path}`);

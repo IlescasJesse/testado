@@ -34,9 +34,9 @@ app.use("/api/trimestres", rutasTrimestres);
 // ---------------------------------------------------------------------------
 // Inicio del servidor
 // ---------------------------------------------------------------------------
-const PORT = parseInt(process.env["PORT"] ?? "3001", 10);
+const PORT = parseInt(process.env["PORT"] ?? "3011", 10);
 
-app.listen(PORT, "0.0.0.0", () => {
+const servidor = app.listen(PORT, "0.0.0.0", () => {
   const interfaces = os.networkInterfaces();
   const direccionesRed: string[] = [];
 
@@ -57,5 +57,16 @@ app.listen(PORT, "0.0.0.0", () => {
   });
   console.log(`   Concurrencia: ${CONCURRENCIA} slots (${os.cpus().length} núcleos - 1)\n`);
 });
+
+// Bloquear/desbloquear procesa lotes grandes de forma síncrona en una sola
+// request (cifrado con qpdf por archivo); sin esto, Node corta la conexión
+// a los 5 minutos (requestTimeout por defecto) aunque el proceso siga sano.
+servidor.requestTimeout = 0;
+servidor.headersTimeout = 0;
+// keepAliveTimeout por defecto es 5s: el proxy de Next.js (dev) reutiliza
+// conexiones keep-alive y puede toparse con un socket ya cerrado por el
+// server, causando "socket hang up" / ECONNRESET. Lo subimos bien por
+// encima de cualquier idle razonable entre requests.
+servidor.keepAliveTimeout = 120_000;
 
 export default app;

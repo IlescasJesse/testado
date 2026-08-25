@@ -6,9 +6,13 @@
  * a disco.
  *
  * Operaciones de censura (en el mismo orden que server.js):
- *   1. detectarYTestarRFCEnImagen  — página 2 (índice 1): detecta el RFC en la
- *      imagen OCR con coordenadas TSV, dibuja recuadro negro en canvas, embebe
- *      la imagen resultante en el PDF.
+ *   1. detectarYTestarRFCEnImagen  — escanea página 2 (índice 1, layout
+ *      calibrado con fallback de coordenadas fijas) y, adicionalmente, las
+ *      demás páginas hasta un límite razonable: detecta el RFC en la imagen
+ *      OCR con coordenadas TSV, dibuja recuadro negro en canvas, embebe la
+ *      imagen resultante en el PDF. En páginas distintas de la 2, si no se
+ *      detecta RFC por OCR se omite la censura en esa página (no se aplica
+ *      el fallback de coordenadas fijas, calibrado solo para la página 2).
  *   2. censurarFirmasLaterales     — franjas blancas de 7.5 % del ancho en ambos
  *      laterales de todas las páginas.
  *   3. detectarYCensurarFirmaUltimaPagina — cubre la firma autógrafa entre el
@@ -28,7 +32,7 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import { execSync } from "child_process";
-import { detectarDatos } from "./ocr.js";
+import { detectarDatos, resolverPngGenerado, extraerRFC } from "./ocr.js";
 import type { ResultadoOCR } from "./ocr.js";
 
 // ── Interfaces mínimas para libs sin tipos completos ──────────────────────────
@@ -97,13 +101,17 @@ function limpiar(ruta: string | null): void {
 // Se busca con dos estrategias: relativa a __dirname y relativa al CWD.
 
 function resolverFuenteMontserrat(): string {
+  // `__dirname` existe en CommonJS (producción) pero NO en ESM (ts-node --esm
+  // en dev); `typeof` evita el ReferenceError y caemos a cwd como ancla.
+  const baseDir = typeof __dirname !== "undefined" ? __dirname : process.cwd();
   const candidatos = [
-    // Cuando se ejecuta desde packages/pdf-core/src/
-    path.resolve(__dirname, "../../../fonts/Montserrat-Regular.ttf"),
+    // Relativo al módulo (packages/pdf-core/src/ o /dist/)
+    path.resolve(baseDir, "../../../fonts/Montserrat-Regular.ttf"),
+    path.resolve(baseDir, "../../fonts/Montserrat-Regular.ttf"),
     // Cuando CWD es la raíz del monorepo
     path.resolve(process.cwd(), "fonts/Montserrat-Regular.ttf"),
-    // Relativo a packages/pdf-core/
-    path.resolve(__dirname, "../../fonts/Montserrat-Regular.ttf"),
+    // Cuando CWD es apps/api (npm run dev/start -w @testado/api)
+    path.resolve(process.cwd(), "../../fonts/Montserrat-Regular.ttf"),
   ];
   for (const c of candidatos) {
     if (fs.existsSync(c)) return c;
@@ -128,10 +136,8 @@ async function detectarRFCEnImagenConRecuadro(
 
   const prefijo = `ocr_rfc_${Date.now()}_${Math.random().toString(36).slice(2)}`;
   const tempPdfPath = tmpPath("rfc_pdf", ".pdf");
-  const imgPath = path.join(
-    os.tmpdir(),
-    `${prefijo}-${pageIndex + 1}.png`,
-  );
+  // imgPath se resuelve tras convertir (poppler rellena con ceros el nº de página).
+  let imgPath: string | null = null;
   const tsvBasePath = path.join(os.tmpdir(), `${prefijo}_tsv`);
   const tsvPath = `${tsvBasePath}.tsv`;
 
@@ -147,7 +153,8 @@ async function detectarRFCEnImagenConRecuadro(
     };
     await poppler.convert(tempPdfPath, opts);
 
-    if (!fs.existsSync(imgPath)) {
+    imgPath = resolverPngGenerado(os.tmpdir(), prefijo, pageIndex + 1);
+    if (imgPath === null) {
       console.warn("[censura] No se generó imagen OCR para RFC");
       return null;
     }
@@ -192,38 +199,12 @@ async function detectarRFCEnImagenConRecuadro(
       words.push({ text: wordText, left, top, w, h, right: left + w, bottom: top + h });
     }
 
-    // Detectar RFC del texto completo (igual que server.js líneas 131-158)
-    let rfc: string | null = null;
-    const rfcCandidates: Array<{ value: string; word: Palabra }> = [];
-
-    const rfcPatterns: RegExp[] = [
-      /(?:RFC|R\.F\.C\.|N[UÚ]MERO(?:\s+DE)?\s+RFC|N[UÚ]MERO\s*:\s*RFC)\s*[:\-]?\s*([A-ZÑ&]{3,4}\d{6}[A-Z0-9]{2,3})/i,
-      /(?:N[UÚ]MERO\s*:\s*)([A-ZÑ&]{3,4}\d{6}[A-Z0-9]{2,3})/i,
-      /([A-ZÑ&]{3,4}\d{6}[A-Z0-9]{2,3})/i,
-    ];
-
-    for (const pat of rfcPatterns) {
-      const match = cleanedOCRText.match(pat);
-      if (match?.[1]) {
-        const candidate = match[1].replace(/[^A-Z0-9Ñ&]/g, "").toUpperCase();
-        if (candidate.length === 12 || candidate.length === 13) {
-          rfc = candidate;
-          break;
-        }
-      }
-    }
-
-    const candidateRegexp = /^[A-ZÑ&]{3,4}\d{6}[A-Z0-9]{2,3}$/;
-    for (const word of words) {
-      const cleaned = word.text.toUpperCase().replace(/[^A-Z0-9Ñ&]/g, "");
-      if (candidateRegexp.test(cleaned)) {
-        rfcCandidates.push({ value: cleaned, word });
-      }
-    }
-
-    if (!rfc && rfcCandidates.length > 0) {
-      rfc = rfcCandidates[0].value;
-    }
+    // Detectar RFC del texto completo, reutilizando la misma lógica que ocr.ts
+    // (etiqueta contextual > patrón crudo > tokens TSV) para no divergir.
+    const rfc: string | null = extraerRFC(
+      cleanedOCRText,
+      words.map((w) => w.text),
+    );
 
     // Dibujar imagen con canvas (igual que server.js líneas 161-288)
     const image = await canvasMod.loadImage(imgPath);
@@ -295,8 +276,12 @@ async function detectarRFCEnImagenConRecuadro(
       y = minY;
       width = maxX - minX;
       height = maxY - minY;
-    } else {
-      // Fallback: buscar "b)" y "número" (server.js líneas 234-264)
+    } else if (pageIndex === 1) {
+      // Fallback legacy de coordenadas fijas, calibrado para el layout de la
+      // página 2 (server.js líneas 234-264). Solo se aplica a esa página:
+      // en cualquier otra página del rango escaneado no hay garantía de que
+      // este layout coincida, así que ahí es mejor omitir la censura (rama
+      // else de abajo) que tapar contenido equivocado con un recuadro a ciegas.
       let fallbackY = 690;
       let fallbackX = 970;
 
@@ -322,8 +307,15 @@ async function detectarRFCEnImagenConRecuadro(
 
       x = fallbackX - 10;
       y = fallbackY - 8;
-      width = 240;
-      height = 38;
+      width = 280; // antes 240 — margen adicional ante variaciones de layout
+      height = 46; // antes 38
+
+      console.warn(
+        `[censura] RFC no detectado por OCR en página 2; se usó recuadro de fallback en coordenadas fijas (x=${x}, y=${y}). Revisar manualmente (convención SINRFC-<hash>).`,
+      );
+    } else {
+      console.warn(`[censura] No se detectó RFC en página ${pageIndex + 1}; se omite censura en esa página.`);
+      return null;
     }
 
     // SIEMPRE dibujar el recuadro negro (server.js líneas 266-273)
@@ -337,8 +329,6 @@ async function detectarRFCEnImagenConRecuadro(
 
     if (rfc) {
       console.log(`[censura] RFC detectado y testado: ${rfc}`);
-    } else {
-      console.warn("[censura] No se detectó RFC (fallback), se dibujó región de prueba");
     }
 
     // Guardar imagen "tested" (server.js líneas 283-288)
@@ -427,7 +417,8 @@ async function detectarYCensurarFirmaUltimaPagina(
 
   const prefijo = `ocr_firma_${Date.now()}_${Math.random().toString(36).slice(2)}`;
   const tempPdfPath = tmpPath("firma_pdf", ".pdf");
-  const imgPath = path.join(os.tmpdir(), `${prefijo}-${ultimoIdx + 1}.png`);
+  // imgPath se resuelve tras convertir (poppler rellena con ceros el nº de página).
+  let imgPath: string | null = null;
   const tsvBasePath = path.join(os.tmpdir(), `${prefijo}_tsv`);
   const tsvPath = `${tsvBasePath}.tsv`;
 
@@ -443,7 +434,8 @@ async function detectarYCensurarFirmaUltimaPagina(
     };
     await poppler.convert(tempPdfPath, opts);
 
-    if (!fs.existsSync(imgPath)) {
+    imgPath = resolverPngGenerado(os.tmpdir(), prefijo, ultimoIdx + 1);
+    if (imgPath === null) {
       console.warn("[censura] No se generó imagen para última página, usando fallback firma");
       await aplicarFallbackFirmaUltimaPagina(ultimaPagina, pdfW, pdfH);
       return;
@@ -523,7 +515,15 @@ async function detectarYCensurarFirmaUltimaPagina(
       }
     }
 
-    if (anchorImgY !== null && anchorImgX !== null) {
+    // La frase completa "EL PRESTADOR DE SERVICIOS" ocupa normalmente ≥ 8% del
+    // ancho de la imagen. Si tras la expansión el ancla sigue siendo diminuta
+    // (p. ej. tesseract solo detectó una comilla o fragmento suelto), la
+    // detección no es confiable: se descarta y se mide la firma por posición
+    // en vez de por texto (ver bloque "ancla plausible" más abajo).
+    const anchorPlausible =
+      anchorImgY !== null && anchorImgX !== null && anchorImgW >= imgW * 0.08;
+
+    if (anchorPlausible && anchorImgY !== null && anchorImgX !== null) {
       const anchorBottom = anchorImgY + anchorImgH;
 
       // Buscar nombre del empleado (server.js líneas 630-645)
@@ -544,11 +544,42 @@ async function detectarYCensurarFirmaUltimaPagina(
         }
       }
 
-      // Rectángulo que cubre SOLO la firma (server.js líneas 648-667)
+      // Rectángulo que cubre SOLO la firma. Piso mínimo de alto (8 % de la
+      // imagen) para no producir una franja casi invisible cuando la línea del
+      // nombre se detecta demasiado cerca del ancla (heurística frágil).
       const sigImgY = anchorBottom + 5;
-      const sigImgH = Math.max(20, nameImgYTop - 5 - sigImgY);
+      const sigImgH = Math.max(imgH * 0.08, nameImgYTop - 5 - sigImgY);
       const sigImgX = Math.max(0, anchorImgX - 5);
       const sigImgW = anchorImgW + 10;
+
+      const pdfBloqueX = sigImgX * scX;
+      const pdfBloqueY = pdfH - (sigImgY + sigImgH) * scY;
+      const pdfBloqueW = sigImgW * scX;
+      const pdfBloqueH = sigImgH * scY;
+
+      ultimaPagina.drawRectangle({
+        x: Math.max(0, pdfBloqueX),
+        y: Math.max(0, pdfBloqueY),
+        width: Math.min(pdfW - pdfBloqueX, pdfBloqueW),
+        height: Math.max(0, pdfBloqueH),
+        color: rgb(0, 0, 0),
+      });
+    } else if (anchorImgY !== null) {
+      // Ancla de texto encontrada (sabemos la altura aprox. de la línea
+      // "PRESTADOR DE SERVICIOS") pero no es confiable en ancho/alto. En vez
+      // de descartar toda la posición, se mide un recuadro de tamaño fijo
+      // debajo de esa línea — cubre la firma sin depender de una segunda
+      // detección de texto frágil.
+      console.warn(
+        "[censura] Ancla 'PRESTADOR' poco confiable en última página, censura por medición",
+      );
+      // Medidas calibradas contra contratos reales: la firma autógrafa (con
+      // rúbrica/lazos) ocupa ~23 % del alto de imagen entre el pie del
+      // encabezado "EL PRESTADOR DE SERVICIOS" y el nombre impreso debajo.
+      const sigImgY = anchorImgY + anchorImgH + imgH * 0.005;
+      const sigImgH = imgH * 0.24;
+      const sigImgX = Math.max(0, (anchorImgX ?? imgW * 0.2) - imgW * 0.05);
+      const sigImgW = imgW * 0.4;
 
       const pdfBloqueX = sigImgX * scX;
       const pdfBloqueY = pdfH - (sigImgY + sigImgH) * scY;
@@ -610,19 +641,30 @@ export async function testarPdf(
   const montserratBytes = fs.readFileSync(fontPath);
   await pdfDoc.embedFont(montserratBytes);
 
-  // 1. Detectar RFC en imagen de página 2 y dibujar recuadro negro (server.js líneas 902-923)
-  if (paginas.length >= 2) {
-    const testedImgPath = await detectarRFCEnImagenConRecuadro(input, 1);
+  // 1. Detectar RFC en imagen de página y dibujar recuadro negro (server.js líneas 902-923).
+  //    La página 2 (índice 1) es el caso mayoritario (layout calibrado con
+  //    fallback); además se escanean las demás páginas hasta un límite
+  //    razonable, por si el RFC también aparece en portada/anexos — el RFC
+  //    no debe quedar visible en ninguna página del contrato.
+  const LIMITE_PAGINAS_RFC = Math.min(paginas.length, 4);
+  const ordenPaginasRFC: number[] = [];
+  if (paginas.length >= 2) ordenPaginasRFC.push(1); // página 2 primero
+  for (let i = 0; i < LIMITE_PAGINAS_RFC; i++) {
+    if (!ordenPaginasRFC.includes(i)) ordenPaginasRFC.push(i);
+  }
+
+  for (const pageIndex of ordenPaginasRFC) {
+    const testedImgPath = await detectarRFCEnImagenConRecuadro(input, pageIndex);
 
     if (testedImgPath && fs.existsSync(testedImgPath)) {
       try {
-        const pagina2 = paginas[1];
-        const { width, height } = pagina2.getSize();
+        const pagina = paginas[pageIndex];
+        const { width, height } = pagina.getSize();
 
         const imgBuffer = fs.readFileSync(testedImgPath);
         const pngImage = await pdfDoc.embedPng(imgBuffer);
 
-        pagina2.drawImage(pngImage, {
+        pagina.drawImage(pngImage, {
           x: 0,
           y: 0,
           width,

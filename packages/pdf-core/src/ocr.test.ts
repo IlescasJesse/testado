@@ -13,7 +13,7 @@
 
 import { describe, it, expect } from "vitest";
 import { execSync } from "node:child_process";
-import { detectarDatos, extraerFecha, extraerNombre, nombreDesdeArchivo } from "./ocr.js";
+import { detectarDatos, extraerFecha, extraerNombre, extraerRFC, nombreDesdeArchivo } from "./ocr.js";
 import type { ResultadoOCR } from "./ocr.js";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -175,6 +175,48 @@ describe("nombreDesdeArchivo", () => {
 
   it("convierte a mayúsculas aunque venga en minúsculas", () => {
     expect(nombreDesdeArchivo("garcia lopez.pdf")).toBe("GARCIA LOPEZ");
+  });
+});
+
+// ── Tests puros: extraerRFC ───────────────────────────────────────────────────
+
+describe("extraerRFC", () => {
+  it("detecta RFC de 13 caracteres con etiqueta RFC:", () => {
+    expect(extraerRFC("RFC: AABY950317E27", [])).toBe("AABY950317E27");
+  });
+
+  it("detecta RFC de 12 caracteres (persona moral) con etiqueta RFC:", () => {
+    expect(extraerRFC("RFC: ABC950317E27", [])).toBe("ABC950317E27");
+  });
+
+  it("detecta RFC con espacio interno", () => {
+    expect(extraerRFC("RFC AABY 950317 E27", [])).toBe("AABY950317E27");
+  });
+
+  it("detecta RFC con guion interno", () => {
+    expect(extraerRFC("RFC: AABY-950317-E27", [])).toBe("AABY950317E27");
+  });
+
+  it("detecta variante 'NÚMERO DE RFC'", () => {
+    expect(extraerRFC("NÚMERO DE RFC AABY950317E27", [])).toBe("AABY950317E27");
+  });
+
+  it("detecta variante 'NÚMERO: RFCVALUE'", () => {
+    expect(extraerRFC("NÚMERO: AABY950317E27", [])).toBe("AABY950317E27");
+  });
+
+  it("detecta variante 'número RFCVALUE' sin dos puntos", () => {
+    expect(extraerRFC("número AABY950317E27", [])).toBe("AABY950317E27");
+  });
+
+  it("devuelve null si no hay RFC en el texto ni en los tokens", () => {
+    expect(extraerRFC("CONTRATO DE PRESTACIÓN DE SERVICIOS", [])).toBeNull();
+  });
+
+  it("cae al fallback de tokensTSV si el texto plano no matchea", () => {
+    expect(
+      extraerRFC("texto sin patrón reconocible", ["ruido", "AABY950317E27", "otro"]),
+    ).toBe("AABY950317E27");
   });
 });
 
