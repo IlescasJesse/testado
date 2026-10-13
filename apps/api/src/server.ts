@@ -7,9 +7,15 @@ import { router as rutasContratos } from "./rutas/contratos.js";
 import { router as rutasTrimestres } from "./rutas/trimestres.js";
 
 // ---------------------------------------------------------------------------
-// Concurrencia global: usa todos los núcleos menos uno (mínimo 1)
+// Concurrencia global: usa todos los núcleos menos uno (mínimo 1).
+// En un servidor compartido con otras apps se fija con TESTADO_CONCURRENCIA
+// para que el OCR no acapare la máquina (ver ecosystem.config.js).
 // ---------------------------------------------------------------------------
-export const CONCURRENCIA = Math.max(1, os.cpus().length - 1);
+const concurrenciaEnv = parseInt(process.env["TESTADO_CONCURRENCIA"] ?? "", 10);
+export const CONCURRENCIA =
+  Number.isInteger(concurrenciaEnv) && concurrenciaEnv > 0
+    ? concurrenciaEnv
+    : Math.max(1, os.cpus().length - 1);
 export const colaGlobal = new Cola(CONCURRENCIA);
 
 // ---------------------------------------------------------------------------
@@ -55,7 +61,7 @@ const servidor = app.listen(PORT, "0.0.0.0", () => {
   direccionesRed.forEach((addr) => {
     console.log(`   Red:          http://${addr}:${PORT}`);
   });
-  console.log(`   Concurrencia: ${CONCURRENCIA} slots (${os.cpus().length} núcleos - 1)\n`);
+  console.log(`   Concurrencia: ${CONCURRENCIA} slots (${os.cpus().length} núcleos en el equipo)\n`);
 });
 
 // Bloquear/desbloquear procesa lotes grandes de forma síncrona en una sola

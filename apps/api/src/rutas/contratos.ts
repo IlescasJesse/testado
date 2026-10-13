@@ -337,14 +337,15 @@ router.post("/bloquear", async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    const ownerPwd = process.env["QPDF_OWNER_PASSWORD"];
-    if (!ownerPwd) {
+    const ownerPwdRaw = process.env["QPDF_OWNER_PASSWORD"];
+    if (!ownerPwdRaw) {
       res.status(500).json({
         success: false,
         message: "QPDF_OWNER_PASSWORD no está configurado en el servidor.",
       });
       return;
     }
+    const ownerPwd = ownerPwdRaw.trim();
 
     const ids = body.ids;
     const loteId = `bloq-${Date.now()}-${contadorLotesAccion++}`;

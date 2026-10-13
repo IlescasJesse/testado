@@ -127,10 +127,15 @@ function resolverFuenteMontserrat(): string {
 // Devuelve la ruta de la imagen "tested" (con el recuadro negro dibujado),
 // o null si no fue posible generarla.
 
+interface ResultadoRFCImagen {
+  testedImgPath: string;
+  rfc: string | null;
+}
+
 async function detectarRFCEnImagenConRecuadro(
   pdfBytes: Buffer,
   pageIndex: number,
-): Promise<string | null> {
+): Promise<ResultadoRFCImagen | null> {
   const poppler = await import("pdf-poppler");
   const canvasMod = (await import("canvas")) as CanvasModule;
 
@@ -339,7 +344,7 @@ async function detectarRFCEnImagenConRecuadro(
     const imgBuffer = canvas.toBuffer("image/png");
     fs.writeFileSync(testedImgPath, imgBuffer);
 
-    return testedImgPath;
+    return { testedImgPath, rfc };
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
     console.warn(`[censura] OCR RFC Error: ${msg}`);
@@ -653,15 +658,28 @@ export async function testarPdf(
     if (!ordenPaginasRFC.includes(i)) ordenPaginasRFC.push(i);
   }
 
-  for (const pageIndex of ordenPaginasRFC) {
-    const testedImgPath = await detectarRFCEnImagenConRecuadro(input, pageIndex);
+  // RFC ya detectado durante el escaneo de dibujo (cualquier página del rango
+  // ordenPaginasRFC), para no depender solo de detectarDatos(página 1 o 2) más
+  // abajo: en contratos con más páginas (anexos) el RFC puede vivir en una
+  // página distinta a la 1/2, y ahí sí se escanea (hasta 4 páginas) para
+  // dibujar el recuadro — pero antes ese hallazgo se perdía y el campo RFC
+  // guardado en BD/nombre de archivo quedaba null aunque la censura visual
+  // sí hubiera tapado el RFC correctamente.
+  let rfcDetectadoEnDibujo: string | null = null;
 
-    if (testedImgPath && fs.existsSync(testedImgPath)) {
+  for (const pageIndex of ordenPaginasRFC) {
+    const resultado = await detectarRFCEnImagenConRecuadro(input, pageIndex);
+
+    if (resultado?.rfc && rfcDetectadoEnDibujo === null) {
+      rfcDetectadoEnDibujo = resultado.rfc;
+    }
+
+    if (resultado && fs.existsSync(resultado.testedImgPath)) {
       try {
         const pagina = paginas[pageIndex];
         const { width, height } = pagina.getSize();
 
-        const imgBuffer = fs.readFileSync(testedImgPath);
+        const imgBuffer = fs.readFileSync(resultado.testedImgPath);
         const pngImage = await pdfDoc.embedPng(imgBuffer);
 
         pagina.drawImage(pngImage, {
@@ -672,7 +690,7 @@ export async function testarPdf(
           opacity: 1.0,
         });
       } finally {
-        limpiar(testedImgPath);
+        limpiar(resultado.testedImgPath);
       }
     }
   }
@@ -704,6 +722,13 @@ export async function testarPdf(
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
     console.warn(`[censura] No se pudieron obtener datos OCR adicionales: ${msg}`);
+  }
+
+  // Último respaldo: si detectarDatos (limitado a páginas 1 y 2) no encontró
+  // RFC pero sí se detectó en el escaneo de dibujo (que cubre más páginas),
+  // usar ese valor en vez de guardar null.
+  if (!datosOCR.rfc && rfcDetectadoEnDibujo) {
+    datosOCR = { ...datosOCR, rfc: rfcDetectadoEnDibujo };
   }
 
   return {
